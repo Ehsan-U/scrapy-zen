@@ -12,6 +12,9 @@ dependencies = [
     "scrapy",
     "tinydb",
     "dateparser",
+    # grpc
+    "grpcio",
+    "protobuf",
 ]
 
 
