@@ -1,10 +1,14 @@
 from functools import wraps
-from typing import Dict, Callable
+import json
+from typing import Dict, Callable, List
+import scrapy
 from scrapy.crawler import Crawler
 from scrapy.spiders import Spider
 from scrapy.exceptions import DropItem
 from tinydb import TinyDB, Query
 from datetime import datetime, timedelta
+from scrapy.utils.defer import maybe_deferred_to_future
+from scrapy.http.request import NO_CALLBACK
 import dateparser
 
 
@@ -92,3 +96,83 @@ class PreProcessingPipeline:
         if not {k: v for k, v in item.items() if not k.startswith("_") and v}:
             raise DropItem("Item keys have None values!")
         return item
+    
+
+
+class DiscordWebhookPipeline:
+    """
+    Pipeline to send items to a Discord webhook.
+
+    Args:
+        webhook_uri (str): discord webhook uri
+        exclude_fields (List[str]): List of fields that needs to be excluded for this pipeline
+    """
+    exclude_fields: List[str] = ["body"]
+
+    def __init__(self, webhook_uri: str):
+        self.webhook_uri = webhook_uri
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls(
+            webhook_uri=crawler.settings.get("DISCORD_WEBHOOK_URI")
+        )
+
+    async def process_item(self, item: Dict, spider: Spider):
+        await self._send(item, spider)
+        return item
+
+    async def _send(self, item: Dict, spider: Spider) -> None:
+        _item = {k:v for k,v in item.items() if not k.startswith("_") and k not in self.exclude_fields}
+        await maybe_deferred_to_future(
+            spider.crawler.engine.download(
+                scrapy.Request(
+                    url=self.webhook_uri,
+                    method="POST",
+                    body=json.dumps(_item),
+                    headers={"Content-Type": "application/json"},
+                    callback=NO_CALLBACK,
+                ),
+            )
+        )
+
+
+
+class SynopticPipeline:
+    """
+    Pipeline to send items to a Synoptic stream.
+
+    Args:
+        stream_id (str): stream ID of synoptic stream
+        api_key (str): api key of synoptic stream
+    """
+    exclude_fields: List[str] = []
+
+    def __init__(self, stream_id: str, api_key: str):
+        self.stream_id = stream_id
+        self.api_key = api_key
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls(
+            stream_id=crawler.settings.get("SYNOPTIC_STREAM_ID"),
+            api_key=crawler.settings.get("SYNOPTIC_API_KEY")
+        )
+
+    async def process_item(self, item: Dict, spider: Spider):
+        await self._send(item, spider)
+        return item
+
+    async def _send(self, item: Dict, spider: Spider) -> None:
+        _item = {k:v for k,v in item.items() if not k.startswith("_") and k not in self.exclude_fields}
+        await maybe_deferred_to_future(
+            spider.crawler.engine.download(
+                scrapy.Request(
+                    url="https://developer.synoptic.com/graphql",
+                    body=json.dumps(_item),
+                    method="POST",
+                    headers={"content-type": "application/json", 'x-api-key': self.api_key},
+                    callback=NO_CALLBACK
+                )
+            )
+        )
