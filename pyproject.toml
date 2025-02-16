@@ -1,0 +1,20 @@
+[project]
+name = "scrapy-zen"
+version = "0.0.1"
+description = "Scrapy Toolkit"
+authors = [
+    {name = "Ehsan U.",email = "lancerf562@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    # main deps
+    "scrapy",
+    "tinydb",
+    "dateparser",
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
