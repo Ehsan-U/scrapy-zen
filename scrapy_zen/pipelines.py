@@ -121,7 +121,7 @@ class DiscordPipeline:
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
         return cls(
-            uri=crawler.settings.get("DISCORD_URI")
+            uri=crawler.settings.get("DISCORD_SERVER_URI")
         )
 
     async def process_item(self, item: Dict, spider: Spider) -> Dict:
@@ -163,7 +163,7 @@ class SynopticPipeline:
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
         return cls(
-            uri=crawler.settings.get("SYNOPTIC_URI"),
+            uri=crawler.settings.get("SYNOPTIC_SERVER_URI"),
             stream_id=crawler.settings.get("SYNOPTIC_STREAM_ID"),
             api_key=crawler.settings.get("SYNOPTIC_API_KEY")
         )
@@ -208,7 +208,7 @@ class TelegramPipeline:
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
         return cls(
-            uri=crawler.settings.get("TELEGRAM_URI"),
+            uri=crawler.settings.get("TELEGRAM_SERVER_URI"),
             token=crawler.settings.get("TELEGRAM_TOKEN"),
             chat_id=crawler.settings.get("TELEGRAM_CHAT_ID"),
         )
@@ -258,7 +258,7 @@ class GRPCPipeline:
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
         return cls(
-            uri=crawler.settings.get("GRPC_URI"),
+            uri=crawler.settings.get("GRPC_SERVER_URI"),
             token=crawler.settings.get("GRPC_TOKEN"),
             id=crawler.settings.get("GRPC_ID"),
             proto_module=crawler.settings.get("GRPC_PROTO_MODULE")
@@ -313,7 +313,7 @@ class WSPipeline:
     @classmethod
     def from_crawler(cls, crawler) -> Self:
         p = cls(
-            uri=crawler.settings.get("WS_URI")
+            uri=crawler.settings.get("WS_SERVER_URI")
         )
         crawler.signals.connect(p.spider_opened, signal=signals.spider_opened)
         crawler.signals.connect(p.spider_closed, signal=signals.spider_closed)
@@ -336,3 +336,46 @@ class WSPipeline:
             spider.logger.debug(f"Sent to WS server: {item["_id"]}")
         except Exception as e:
             spider.logger.error(f"Failed to send to WS server: {item['_id']}\n{str(e)}")
+
+
+
+class HttpPipeline:
+    """
+    Pipeline to send items to a custom http webhook.
+
+    Attributes:
+        uri (str):
+        token (str):
+        exclude_fields (List[str]): List of fields that needs to be excluded for this pipeline
+    """
+    exclude_fields: List[str] = []
+
+    def __init__(self, uri: str, token: str) -> None:
+        self.uri = uri
+        self.token = token
+
+    @classmethod
+    def from_crawler(cls, crawler: Crawler) -> Self:
+        p = cls(
+            uri=crawler.settings.get("HTTP_SERVER_URI"),
+            token=crawler.settings.get("HTTP_TOKEN")
+        )
+        return p
+
+    async def process_item(self, item: Dict, spider) -> Dict:
+        await self._send(item, spider)
+        return item
+    
+    async def _send(self, item: Dict, spider: Spider) -> None:
+        _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
+        await maybe_deferred_to_future(
+            spider.crawler.engine.download(
+                scrapy.Request(
+                    url=self.uri,
+                    body=json.dumps(_item),
+                    method="POST",
+                    headers={"content-type": "application/json","authorization":self.token},
+                    callback=NO_CALLBACK
+                )
+            )
+        )
