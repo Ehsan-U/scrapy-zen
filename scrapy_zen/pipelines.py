@@ -14,6 +14,8 @@ from scrapy.http.request import NO_CALLBACK
 import dateparser
 from twisted.internet.threads import deferToThread
 from twisted.internet.defer import Deferred
+from scrapy import signals
+import websockets
 
 
 
@@ -275,11 +277,11 @@ class GRPCPipeline:
             message=json.dumps(_item)
         )
         def _on_success(result) -> Dict:
-            spider.logger.debug(f"Successfully sent to gRPC aggregator: {item['_id']}")
+            spider.logger.debug(f"Sent to gRPC server: {item['_id']}")
             return item
         d = deferToThread(self._submit, feed_message)
         d.addCallback(_on_success)
-        d.addErrback(lambda f: spider.logger.error(f"Failed to send to gRPC aggregator: {item['_id']}\n{f.value}"))
+        d.addErrback(lambda f: spider.logger.error(f"Failed to send to gRPC server: {item['_id']}\n{f.value}"))
         return d
 
     def _submit(self, feed_message) -> None:
@@ -292,3 +294,45 @@ class GRPCPipeline:
 
     def close_spider(self, spider: Spider) -> None:
         self._channel_grpc.close()
+
+
+
+class WSPipeline:
+    """
+    Pipeline to send items to a websocket server.
+
+    Attributes:
+        uri (str):
+        exclude_fields (List[str]): List of fields that needs to be excluded for this pipeline
+    """
+    exclude_fields: List[str] = []
+
+    def __init__(self, uri: str) -> None:
+        self.uri = uri
+
+    @classmethod
+    def from_crawler(cls, crawler) -> Self:
+        p = cls(
+            uri=crawler.settings.get("WS_URI")
+        )
+        crawler.signals.connect(p.spider_opened, signal=signals.spider_opened)
+        crawler.signals.connect(p.spider_closed, signal=signals.spider_closed)
+        return p
+
+    async def spider_opened(self, spider) -> None:
+        self.client = await websockets.connect(self.ws_server_uri)
+
+    async def spider_closed(self, spider) -> None:
+        await self.client.close()
+
+    async def process_item(self, item: Dict, spider) -> Dict:
+        await self._send(item, spider)
+        return item
+    
+    async def _send(self, item: Dict, spider: Spider) -> None:
+        _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
+        try:
+            await self.client.send(json.dumps(_item))
+            spider.logger.debug(f"Sent to WS server: {item["_id"]}")
+        except Exception as e:
+            spider.logger.error(f"Failed to send to WS server: {item['_id']}\n{str(e)}")
