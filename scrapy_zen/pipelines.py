@@ -35,6 +35,10 @@ class PreProcessingPipeline:
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
+        settings = []
+        for setting in settings:
+            if not crawler.settings.get(setting):
+                raise NotConfigured(f"{setting} is not set")
         return cls(
             file_path=crawler.settings.get("PREPROCESSING_DB_PATH"),
             expiry_days=crawler.settings.get("PREPROCESSING_EXPIRY_DAYS"),
@@ -120,6 +124,10 @@ class DiscordPipeline:
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
+        settings = ["DISCORD_SERVER_URI"]
+        for setting in settings:
+            if not crawler.settings.get(setting):
+                raise NotConfigured(f"{setting} is not set")
         return cls(
             uri=crawler.settings.get("DISCORD_SERVER_URI")
         )
@@ -162,6 +170,10 @@ class SynopticPipeline:
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
+        settings = ["SYNOPTIC_SERVER_URI","SYNOPTIC_STREAM_ID","SYNOPTIC_API_KEY"]
+        for setting in settings:
+            if not crawler.settings.get(setting):
+                raise NotConfigured(f"{setting} is not set")
         return cls(
             uri=crawler.settings.get("SYNOPTIC_SERVER_URI"),
             stream_id=crawler.settings.get("SYNOPTIC_STREAM_ID"),
@@ -207,6 +219,10 @@ class TelegramPipeline:
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
+        settings = ["TELEGRAM_SERVER_URI","TELEGRAM_TOKEN","TELEGRAM_CHAT_ID"]
+        for setting in settings:
+            if not crawler.settings.get(setting):
+                raise NotConfigured(f"{setting} is not set")
         return cls(
             uri=crawler.settings.get("TELEGRAM_SERVER_URI"),
             token=crawler.settings.get("TELEGRAM_TOKEN"),
@@ -260,7 +276,7 @@ class GRPCPipeline:
         settings = ["GRPC_SERVER_URI","GRPC_TOKEN","GRPC_ID","GRPC_PROTO_MODULE"]
         for setting in settings:
             if not crawler.settings.get(setting):
-                raise NotConfigured
+                raise NotConfigured(f"{setting} is not set")
         return cls(
             uri=crawler.settings.get("GRPC_SERVER_URI"),
             token=crawler.settings.get("GRPC_TOKEN"),
@@ -316,6 +332,10 @@ class WSPipeline:
 
     @classmethod
     def from_crawler(cls, crawler) -> Self:
+        settings = ["WS_SERVER_URI"]
+        for setting in settings:
+            if not crawler.settings.get(setting):
+                raise NotConfigured(f"{setting} is not set")
         p = cls(
             uri=crawler.settings.get("WS_SERVER_URI")
         )
@@ -360,6 +380,10 @@ class HttpPipeline:
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
+        settings = ["HTTP_SERVER_URI","HTTP_TOKEN"]
+        for setting in settings:
+            if not crawler.settings.get(setting):
+                raise NotConfigured(f"{setting} is not set")
         p = cls(
             uri=crawler.settings.get("HTTP_SERVER_URI"),
             token=crawler.settings.get("HTTP_TOKEN")

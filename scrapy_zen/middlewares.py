@@ -1,6 +1,6 @@
 from tinydb import Query, TinyDB
 from scrapy import Spider, signals
-from scrapy.exceptions import IgnoreRequest
+from scrapy.exceptions import IgnoreRequest, NotConfigured
 from datetime import datetime
 import dateparser
 from scrapy.crawler import Crawler
@@ -22,6 +22,10 @@ class PreProcessingMiddleware:
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
+        settings = ["PREPROCESSING_DB_PATH"]
+        for setting in settings:
+            if not crawler.settings.get(setting):
+                raise NotConfigured(f"{setting} is not set")
         m = cls(
             file_path=crawler.settings.get("PREPROCESSING_DB_PATH"),
         )
