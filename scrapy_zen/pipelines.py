@@ -319,13 +319,13 @@ class WSPipeline:
         crawler.signals.connect(p.spider_closed, signal=signals.spider_closed)
         return p
 
-    async def spider_opened(self, spider) -> None:
+    async def spider_opened(self, spider: Spider) -> None:
         self.client = await websockets.connect(self.ws_server_uri)
 
-    async def spider_closed(self, spider) -> None:
+    async def spider_closed(self, spider: Spider) -> None:
         await self.client.close()
 
-    async def process_item(self, item: Dict, spider) -> Dict:
+    async def process_item(self, item: Dict, spider: Spider) -> Dict:
         await self._send(item, spider)
         return item
     
@@ -362,7 +362,7 @@ class HttpPipeline:
         )
         return p
 
-    async def process_item(self, item: Dict, spider) -> Dict:
+    async def process_item(self, item: Dict, spider: Spider) -> Dict:
         await self._send(item, spider)
         return item
     
