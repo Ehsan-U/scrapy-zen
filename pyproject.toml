@@ -12,13 +12,21 @@ dependencies = [
     "scrapy",
     "tinydb",
     "dateparser",
-    # grpc
-    "grpcio",
-    "protobuf",
-    # websocket
-    "websockets",
 ]
 
+[project.optional-dependencies]
+grpc = [
+    "grpcio",
+    "protobuf",
+]
+websocket = [
+    "websockets",
+]
+all = [
+    "grpcio",
+    "protobuf",
+    "websockets",
+]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

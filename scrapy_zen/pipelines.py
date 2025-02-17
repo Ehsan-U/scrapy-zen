@@ -6,7 +6,7 @@ import grpc
 import scrapy
 from scrapy.crawler import Crawler
 from scrapy.spiders import Spider
-from scrapy.exceptions import DropItem
+from scrapy.exceptions import DropItem, NotConfigured
 from tinydb import TinyDB, Query
 from datetime import datetime, timedelta
 from scrapy.utils.defer import maybe_deferred_to_future
@@ -257,6 +257,10 @@ class GRPCPipeline:
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
+        settings = ["GRPC_SERVER_URI","GRPC_TOKEN","GRPC_ID","GRPC_PROTO_MODULE"]
+        for setting in settings:
+            if not crawler.settings.get(setting):
+                raise NotConfigured
         return cls(
             uri=crawler.settings.get("GRPC_SERVER_URI"),
             token=crawler.settings.get("GRPC_TOKEN"),
