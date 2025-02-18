@@ -5,10 +5,10 @@ from typing import Dict, Callable, List, Self
 import grpc
 import scrapy
 from scrapy.crawler import Crawler
+from scrapy.settings import Settings
 from scrapy.spiders import Spider
 from scrapy.exceptions import DropItem, NotConfigured
-from tinydb import TinyDB, Query
-from datetime import datetime, timedelta
+from datetime import datetime
 from scrapy.utils.defer import maybe_deferred_to_future
 from scrapy.http.request import NO_CALLBACK
 import dateparser
@@ -16,6 +16,7 @@ from twisted.internet.threads import deferToThread
 from twisted.internet.defer import Deferred
 from scrapy import signals
 import websockets
+import psycopg
 
 
 
@@ -25,47 +26,58 @@ class PreProcessingPipeline:
     Handles deduplication, date filtering, and data cleaning.
 
     Attributes:
-        file_path (str): Path to TinyDB database file. Defaults to "db.json"
-        expiry_days (int): Number of days to keep records. Defaults to 60
+        settings (Settings): crawler settings object
     """
 
-    def __init__(self, file_path: str = "db.json", expiry_days: int = 60) -> None:
-        self.file_path = file_path
-        self.expiry_days = expiry_days
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
-        settings = []
+        settings = ["DB_NAME","DB_HOST","DB_PORT","DB_USER","DB_PASS"]
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
         return cls(
-            file_path=crawler.settings.get("PREPROCESSING_DB_PATH"),
-            expiry_days=crawler.settings.get("PREPROCESSING_EXPIRY_DAYS"),
+            settings=crawler.settings 
         )
 
     def open_spider(self, spider: Spider) -> None:
-        self._init_db()
+        try:
+            self._conn = psycopg.Connection.connect(f"""
+                dbname={self.settings.get("DB_NAME")} 
+                user={self.settings.get("DB_USER")} 
+                password={self.settings.get("DB_PASS")} 
+                host={self.settings.get("DB_HOST")} 
+                port={self.settings.get("DB_PORT")}
+            """)
+        except:
+            raise NotConfigured("Failed to connect to DB")
+        self._cursor = self._conn.cursor()
+        self._cursor.execute("""CREATE TABLE IF NOT EXISTS Items (
+            id TEXT PRIMARY KEY,
+            spider TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+        self._conn.commit()
 
     def close_spider(self, spider: Spider) -> None:
-        if hasattr(self, "db"):
-            self._db.close()
+        if hasattr(self, "_conn"):
+            self._conn.commit()
+            self._conn.close()
 
-    def _init_db(self) -> None:
-        self._db = TinyDB(self.file_path)
-        self._query = Query()
-        self._cleanup_old_records()
+    def db_insert(self, id: str, spider_name: str) -> None:
+        self._cursor.execute("INSERT INTO Items (id,spider) VALUES (%s,%s)", (id,spider_name))
+        self._conn.commit()
 
-    def tinydb_insert(self, id: str) -> None:
-        self._db.insert({"id": id, "timestamp": datetime.now().isoformat()})
-
-    def tinydb_exists(self, id: str) -> bool:
-        return bool(self._db.search(self._query.id == id))
+    def db_exists(self, id: str) -> bool:
+        record = self._cursor.execute("SELECT id FROM Items WHERE id = %s", (id,)).fetchone()
+        return bool(record)
 
     def _cleanup_old_records(self) -> None:
-        cutoff_date = datetime.now() - timedelta(days=60)
-        cutoff_str = cutoff_date.isoformat()
-        self._db.remove(self._query.timestamp < cutoff_str)
+        self._cursor.execute("DELETE FROM Items WHERE timestamp < NOW() - INTERVAL '%s days'", (self.settings.getint("DB_EXPIRY_DAYS", 60),))
+        self._conn.commit()
 
     @staticmethod
     def is_today(date_str: str, date_format: str = None) -> bool:
@@ -94,9 +106,9 @@ class PreProcessingPipeline:
     def process_item(self, item: Dict, spider: Spider) -> Dict:
         _id = item.get("_id", None)
         if _id:
-            if self.tinydb_exists(id=_id):
+            if self.db_exists(id=_id):
                 raise DropItem(f"Already exists [{_id}]")
-            self.tinydb_insert(id=_id)
+            self.db_insert(id=_id, spider_name=spider.name)
         _dt = item.pop("_dt", None)
         _dt_format = item.pop("_dt_format", None)
         if _dt:

@@ -10,7 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     # main deps
     "scrapy",
-    "tinydb",
+    "psycopg[binary]",
     "dateparser",
 ]
 

@@ -1,53 +1,64 @@
-from tinydb import Query, TinyDB
 from scrapy import Spider, signals
 from scrapy.exceptions import IgnoreRequest, NotConfigured
 from datetime import datetime
 import dateparser
 from scrapy.crawler import Crawler
 from typing import Self
+from scrapy.settings import Settings
+import psycopg
 
 
 
 class PreProcessingMiddleware:
     """
-    Pipeline to preprocess requests, whatever you wanna to with request before downloading it.
-    Don't do any DB modification here !
+    Middleware to preprocess requests before forwarding.
+    Handles deduplication
 
     Attributes:
-        file_path (str): Path to TinyDB database file. Defaults to "db.json"
+        settings (Settings): crawler settings object
     """
 
-    def __init__(self, file_path: str = "db.json") -> None:
-        self.file_path = file_path
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
-        settings = ["PREPROCESSING_DB_PATH"]
+        settings = ["DB_NAME","DB_HOST","DB_PORT","DB_USER","DB_PASS"]
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
         m = cls(
-            file_path=crawler.settings.get("PREPROCESSING_DB_PATH"),
+            settings=crawler.settings 
         )
         crawler.signals.connect(m.open_spider, signal=signals.spider_opened)
         crawler.signals.connect(m.close_spider, signal=signals.spider_closed)
         return m
 
     def open_spider(self, spider: Spider) -> None:
-        self._init_db()
+        try:
+            self._conn = psycopg.Connection.connect(f"""
+                dbname={self.settings.get("DB_NAME")} 
+                user={self.settings.get("DB_USER")} 
+                password={self.settings.get("DB_PASS")} 
+                host={self.settings.get("DB_HOST")} 
+                port={self.settings.get("DB_PORT")}
+            """)
+        except:
+            raise NotConfigured("Failed to connect to DB")
+        self._cursor = self._conn.cursor()
 
     def close_spider(self, spider: Spider) -> None:
-        if hasattr(self, "db"):
-            self._db.close()
+        if hasattr(self, "_conn"):
+            self._conn.close()
     
-    def _init_db(self) -> None:
-        self._db = TinyDB(self.file_path)
-        self._query = Query()
+    def db_exists(self, id: str) -> bool:
+        record = self._cursor.execute("SELECT id FROM Items WHERE id = %s", (id,)).fetchone()
+        return bool(record)
 
     def process_request(self, request, spider: Spider) -> None:
         _id = request.meta.pop("_id", None)
         if _id:
-            if self.tinydb_exists(id=_id):
+            if self.db_exists(id=_id):
                 raise IgnoreRequest
         _dt = request.meta.pop("_dt", None)
         _dt_format = request.meta.pop("_dt_format", None)
@@ -56,9 +67,6 @@ class PreProcessingMiddleware:
                 raise IgnoreRequest
         return None
     
-    def tinydb_exists(self, id: str) -> bool:
-        return bool(self._db.search(self._query.id == id))
-
     @staticmethod
     def is_today(date_str: str, date_format: str = None) -> bool:
         if not date_str:
