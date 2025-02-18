@@ -1,0 +1,15 @@
+{%- if monitors_failed %}
+{{ "💀" }} **Spider `{{ data.spider.name }}` Failed**
+`{{ result.monitors_failed_results|length }}` error(s) detected{% else %}
+{{ "🎉"}} "`{{ data.spider.name }}`" spider finished! {{ "\n" }}
+{% endif %}
+
+{%- if include_error_messages and monitors_failed -%}
+```
+{% for f_result in result.monitors_failed_results %}
+{{ "❌" }} `{{ f_result.monitor.name }}`
+> Reason: {{ f_result.reason }} {{ "\n" }}
+{% endfor %}
+```
+{% endif %}
+
