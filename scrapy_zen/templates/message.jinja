@@ -8,8 +8,15 @@
 ```
 {% for f_result in result.monitors_failed_results %}
 {{ "❌" }} `{{ f_result.monitor.name }}`
-> Reason: {{ f_result.reason }} {{ "\n" }}
 {% endfor %}
 ```
 {% endif %}
 
+{%- if error_logs -%}
+```
+===== CRITICAL =====
+{{ critial_logs }}
+===== ERROR =====
+{{ error_logs }}
+```
+{% endif %}
