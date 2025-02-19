@@ -1,6 +1,6 @@
 [project]
 name = "scrapy-zen"
-version = "0.0.3"
+version = "0.0.5"
 description = "Scrapy Toolkit"
 authors = [
     {name = "Ehsan U.",email = "lancerf562@gmail.com"}
@@ -11,6 +11,7 @@ dependencies = [
   "scrapy",
   "psycopg[binary]",
   "dateparser",
+  "python-dotenv",
 ]
 
 [project.optional-dependencies]

@@ -76,7 +76,7 @@ class PreProcessingPipeline:
         return bool(record)
 
     def _cleanup_old_records(self) -> None:
-        self._cursor.execute("DELETE FROM Items WHERE timestamp < NOW() - INTERVAL '%s days'", (self.settings.getint("DB_EXPIRY_DAYS", 60),))
+        self._cursor.execute("DELETE FROM Items WHERE timestamp < NOW() - INTERVAL '%s days'", (self.settings.getint("DB_EXPIRY_DAYS"),))
         self._conn.commit()
 
     @staticmethod

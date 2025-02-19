@@ -1,6 +1,7 @@
 import scrapy
 from scrapy.crawler import CrawlerProcess
-
+import logging
+logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
 class Book(scrapy.Spider):
     name = "book"
@@ -17,12 +18,7 @@ crawler = CrawlerProcess(settings={
     "ITEM_PIPELINES": {
         "scrapy_zen.pipelines.PreProcessingPipeline": 543
     },
-    "ADDONS": {"scrapy_zen.addon.SpidermonAddon": 1},
-    "DB_NAME": "mydb",
-    "DB_HOST": "127.0.0.1",
-    "DB_PORT": "5432",
-    "DB_USER": "root",
-    "DB_PASS": "toor"
+    "ADDONS": {"scrapy_zen.addons.SpidermonAddon": 1},
 })
 crawler.crawl(Book)
 crawler.start()
