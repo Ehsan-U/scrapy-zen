@@ -8,28 +8,39 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    # main deps
-    "scrapy",
-    "psycopg[binary]",
-    "dateparser",
+  "scrapy",
+  "psycopg[binary]",
+  "dateparser",
 ]
 
 [project.optional-dependencies]
 grpc = [
-    "grpcio",
-    "protobuf",
+  "grpcio",
+  "protobuf",
 ]
 websocket = [
-    "websockets",
+  "websockets",
 ]
 monitoring = [
-    "spidermon[monitoring]",
+  "spidermon[monitoring]",
+]
+playwright = [
+  "scrapy-playwright",
+]
+impersonate = [
+  "scrapy-impersonate",
+]
+zyte = [
+  "scrapy-zyte-api",
 ]
 all = [
-    "grpcio",
-    "protobuf",
-    "websockets",
-    "spidermon[monitoring]",
+  "grpcio",
+  "protobuf",
+  "websockets",
+  "spidermon[monitoring]",
+  "scrapy-playwright",
+  "scrapy-impersonate",
+  "scrapy-zyte-api",
 ]
 
 [build-system]
