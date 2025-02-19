@@ -176,3 +176,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+scrapy_zen/templates/draft.jinja
+.gitignore
+scrapy_zen/templates/macros.jinja
