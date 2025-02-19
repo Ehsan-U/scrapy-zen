@@ -14,8 +14,6 @@ class SpidermonAddon:
         settings.set('SPIDERMON_SPIDER_CLOSE_MONITORS',{
             "scrapy_zen.monitors.SpiderCloseMonitorSuite": 543
         }, "addon")
-        settings.set("SPIDERMON_TELEGRAM_SENDER_TOKEN", os.getenv("SPIDERMON_TELEGRAM_SENDER_TOKEN"), "addon")
-        settings.set("SPIDERMON_TELEGRAM_RECIPIENTS", ["-1002462968579"], "addon")
         settings.set("SPIDERMON_MAX_CRITICALS", 0, "addon")
         settings.set("SPIDERMON_MAX_DOWNLOADER_EXCEPTIONS", 0, "addon")
         settings.set("SPIDERMON_MAX_ERRORS", 0, "addon")
@@ -23,8 +21,13 @@ class SpidermonAddon:
             403: 0,
             429: 0,
         }, "addon")
-        # settings.set("SPIDERMON_TELEGRAM_FAKE", True, "addon")
+        # telegram
+        settings.set("SPIDERMON_TELEGRAM_FAKE", True, "addon")
+        settings.set("SPIDERMON_TELEGRAM_SENDER_TOKEN", os.getenv("SPIDERMON_TELEGRAM_SENDER_TOKEN"), "addon")
+        settings.set("SPIDERMON_TELEGRAM_RECIPIENTS", ["-1002462968579"], "addon")
         settings.set('SPIDERMON_TELEGRAM_NOTIFIER_INCLUDE_ERROR_MESSAGES', True, "addon")
+        # discord
+        settings.set("SPIDERMON_DISCORD_WEBHOOK_URL", os.getenv("SPIDERMON_DISCORD_WEBHOOK_URL"), "addon")
 
 
 class ZenAddon:

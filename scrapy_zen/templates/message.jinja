@@ -5,7 +5,7 @@
 {% endif %}
 
 {%- if include_error_messages and monitors_failed -%}
-```
+```python
 {% for f_result in result.monitors_failed_results %}
 {{ "❌" }} `{{ f_result.monitor.name }}`
 {% endfor %}
@@ -13,7 +13,7 @@
 {% endif %}
 
 {%- if error_logs -%}
-```
+```python
 ===== CRITICAL =====
 {{ critial_logs }}
 ===== ERROR =====
