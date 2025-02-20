@@ -66,6 +66,3 @@ class ZenAddon:
         # scrapy-playwright
         settings.set("PLAYWRIGHT_ABORT_REQUEST", lambda req: req.resource_type == "image" or ".jpg" in req.url, "addon")
         settings.set("PLAYWRIGHT_PROCESS_REQUEST_HEADERS", None, "addon")
-
-        settings.set("ROBOTSTXT_OBEY", False, "addon")
-        settings.set("USER_AGENT", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36", "addon")
