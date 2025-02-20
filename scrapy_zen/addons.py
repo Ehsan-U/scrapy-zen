@@ -21,7 +21,7 @@ class SpidermonAddon:
             403: 0,
             429: 0,
         }, "addon")
-        # telegram
+        # telegram (disabled)
         settings.set("SPIDERMON_TELEGRAM_FAKE", True, "addon")
         settings.set("SPIDERMON_TELEGRAM_SENDER_TOKEN", os.getenv("SPIDERMON_TELEGRAM_SENDER_TOKEN"), "addon")
         settings.set("SPIDERMON_TELEGRAM_RECIPIENTS", ["-1002462968579"], "addon")
@@ -46,23 +46,39 @@ class ZenAddon:
         # synoptic
         settings.set("SYNOPTIC_STREAM_ID", os.getenv("SYNOPTIC_STREAM_ID"), "addon")
         settings.set("SYNOPTIC_API_KEY", os.getenv("SYNOPTIC_API_KEY"), "addon")
-        
+
         # telegram
         settings.set("TELEGRAM_TOKEN", os.getenv("TELEGRAM_TOKEN"), "addon")
         settings.set("TELEGRAM_CHAT_ID", os.getenv("TELEGRAM_CHAT_ID"), "addon")
         settings.set("TELEGRAM_WEBHOOK_URI", os.getenv("TELEGRAM_WEBHOOK_URI"), "addon")
-        
+
         # gRPC
         settings.set("GRPC_SERVER_ADDRESS", os.getenv("GRPC_SERVER_ADDRESS"), "addon")
         settings.set("GRPC_TOKEN", os.getenv("GRPC_TOKEN"), "addon")
         settings.set("GRPC_ID", os.getenv("GRPC_ID"), "addon")
-        
+
         # websocket
         settings.set("WS_SERVER_URI", os.getenv("WS_SERVER_URI"), "addon")
 
         # custom http webhook
         settings.set("HTTP_SERVER_URI", os.getenv("HTTP_SERVER_URI"), "addon")
-        
+
         # scrapy-playwright
         settings.set("PLAYWRIGHT_ABORT_REQUEST", lambda req: req.resource_type == "image" or ".jpg" in req.url, "addon")
         settings.set("PLAYWRIGHT_PROCESS_REQUEST_HEADERS", None, "addon")
+
+        # download handler
+        settings.set("DOWNLOAD_HANDLERS", {
+            "http": "scrapy_zen.handler.ZenDownloadHandler",
+            "https": "scrapy_zen.handler.ZenDownloadHandler",
+        }, "addon")
+
+        # zyte
+        if settings.get("ZYTE_ENABLED"):
+            settings['DOWNLOADER_MIDDLEWARES'].update({"scrapy_zyte_api.ScrapyZyteAPIDownloaderMiddleware": 633})
+            settings["SPIDER_MIDDLEWARES"].update({
+                "scrapy_zyte_api.ScrapyZyteAPISpiderMiddleware": 100,
+                "scrapy_zyte_api.ScrapyZyteAPIRefererSpiderMiddleware": 1000,
+            })
+            settings.set("REQUEST_FINGERPRINTER_CLASS", "scrapy_zyte_api.ScrapyZyteAPIRequestFingerprinter", "addon")
+            settings.set("USER_AGENT", None, "addon")
