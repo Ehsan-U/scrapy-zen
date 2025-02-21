@@ -10,9 +10,13 @@ from typing import Self
 
 
 class ZenDownloadHandler:
+    lazy = False
     
     def __init__(self, crawler: Crawler):
-        self.crawler = crawler
+        self.playwright_handler = ScrapyPlaywrightDownloadHandler.from_crawler(crawler)
+        self.zyte_handler = ScrapyZyteAPIDownloadHandler.from_crawler(crawler)
+        self.impersonate_handler = ImpersonateDownloadHandler.from_crawler(crawler)
+        self.scrapy_default_handler = HTTPDownloadHandler.from_crawler(crawler)
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
@@ -20,21 +24,10 @@ class ZenDownloadHandler:
 
     def download_request(self, request: Request, spider: Spider) -> Deferred | Deferred[Response]:
         if request.meta.get('playwright'):
-            if not hasattr(self, "playwright_handler"):
-                self.playwright_handler = ScrapyPlaywrightDownloadHandler.from_crawler(self.crawler)
             return self.playwright_handler.download_request(request, spider)
-
         elif request.meta.get("impersonate"):
-            if not hasattr(self, "impersonate_handler"):
-                self.impersonate_handler = ImpersonateDownloadHandler.from_crawler(self.crawler)
             return self.impersonate_handler.download_request(request, spider)
-
         elif request.meta.get('zyte_api_automap'):
-            if not hasattr(self, "zyte_handler"):
-                self.zyte_handler = ScrapyZyteAPIDownloadHandler.from_crawler(self.crawler)
             return self.zyte_handler.download_request(request, spider)
-
         else:
-            if not hasattr(self, "scrapy_default_handler"):
-                self.scrapy_default_handler = HTTPDownloadHandler.from_crawler(self.crawler)
             return self.scrapy_default_handler.download_request(request, spider)
