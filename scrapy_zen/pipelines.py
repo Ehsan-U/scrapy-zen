@@ -17,6 +17,7 @@ from twisted.internet.defer import Deferred
 from scrapy import signals
 import websockets
 import psycopg
+from zoneinfo import ZoneInfo
 
 
 
@@ -83,12 +84,9 @@ class PreProcessingPipeline:
     def is_today(date_str: str, date_format: str = None) -> bool:
         if not date_str:
             return True
-        today = datetime.now().date()
+        today = datetime.now(ZoneInfo('America/New_York')).date()
         input_date = dateparser.parse(date_string=date_str, date_formats=[date_format] if date_format is not None else None).date()
-        if today == input_date:
-            return True
-        else:
-            return False
+        return today == input_date
 
     @staticmethod
     def clean_item(func: Callable) -> Callable:
