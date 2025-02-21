@@ -88,20 +88,9 @@ class PreProcessingPipeline:
         input_date = dateparser.parse(date_string=date_str, date_formats=[date_format] if date_format is not None else None).date()
         return today == input_date
 
-    @staticmethod
-    def clean_item(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(self, item: Dict, spider: Spider) -> Dict:
-            cleaned_item = {}
-            for k,v in item.items():
-                if isinstance(v, str):
-                    v = "\n".join([" ".join(line.split()) for line in v.splitlines()])
-                cleaned_item[k] = v
-            return func(self, cleaned_item, spider)
-        return wrapper
-
-    @clean_item
     def process_item(self, item: Dict, spider: Spider) -> Dict:
+        item = {k:"\n".join([" ".join(line.split()) for line in v.splitlines()]) if isinstance(v, str) else v for k,v in item.items()}
+
         _id = item.get("_id", None)
         if _id:
             if self.db_exists(id=_id):
