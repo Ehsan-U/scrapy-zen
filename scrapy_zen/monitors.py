@@ -1,5 +1,6 @@
 from typing import Dict
 from jinja2 import FileSystemLoader, Environment, Template
+from pkg_resources import resource_filename
 from spidermon import MonitorSuite
 from scrapy.settings import Settings
 from spidermon.contrib.actions.telegram.notifiers import SendTelegramMessageSpiderFinished
@@ -12,7 +13,8 @@ class CustomSendTelegramMessageSpiderFinished(SendTelegramMessageSpiderFinished)
     message_template = None
 
     def get_template(self, name: str) -> Template:
-        loader = FileSystemLoader('scrapy_zen/templates')
+        template_dir = resource_filename('scrapy_zen', 'templates')
+        loader = FileSystemLoader(template_dir)
         env = Environment(loader=loader)
         return env.get_template('message.jinja')
     
@@ -48,7 +50,8 @@ class CustomSendDiscordMessageSpiderFinished(SendDiscordMessageSpiderFinished):
     message_template = None
 
     def get_template(self, name: str) -> Template:
-        loader = FileSystemLoader('scrapy_zen/templates')
+        template_dir = resource_filename('scrapy_zen', 'templates')
+        loader = FileSystemLoader(template_dir)
         env = Environment(loader=loader)
         return env.get_template('message.jinja')
     
