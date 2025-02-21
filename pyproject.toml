@@ -1,6 +1,6 @@
 [project]
 name = "scrapy-zen"
-version = "0.0.11"
+version = "0.0.12"
 description = "Scrapy Toolkit"
 authors = [
     {name = "Ehsan U.",email = "lancerf562@gmail.com"}
