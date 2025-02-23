@@ -78,7 +78,7 @@ class PreProcessingPipeline:
         self._cursor.execute("DELETE FROM Items WHERE timestamp < NOW() - INTERVAL '%s days'", (self.settings.getint("DB_EXPIRY_DAYS"),))
         self._conn.commit()
 
-    def is_today(date_str: str, date_format: str = None, spider: Spider = None) -> bool:
+    def is_today(self, date_str: str, date_format: str = None, spider: Spider = None) -> bool:
         try:
             if not date_str:
                 return True

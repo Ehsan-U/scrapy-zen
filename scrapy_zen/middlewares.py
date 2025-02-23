@@ -68,7 +68,7 @@ class PreProcessingMiddleware:
                 raise IgnoreRequest
         return None
     
-    def is_today(date_str: str, date_format: str = None, spider: Spider = None) -> bool:
+    def is_today(self, date_str: str, date_format: str = None, spider: Spider = None) -> bool:
         try:
             if not date_str:
                 return True
