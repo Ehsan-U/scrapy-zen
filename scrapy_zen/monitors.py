@@ -48,7 +48,6 @@ class CustomSendTelegramMessageSpiderFinished(SendTelegramMessageSpiderFinished)
 
 class CustomSendDiscordMessageSpiderFinished(SendDiscordMessageSpiderFinished):
     message_template = None
-    is_error_occured = False
 
     def get_template(self, name: str) -> Template:
         template_dir = resource_filename('scrapy_zen', 'templates')
@@ -78,20 +77,11 @@ class CustomSendDiscordMessageSpiderFinished(SendDiscordMessageSpiderFinished):
         with open(f, "r") as f:
             logs = f.read()
         d = logparser.parse(logs)
-        logs = {
+        return {
             "critial_logs": "".join(d['log_categories']['critical_logs']['details']), 
             "error_logs": "".join(d['log_categories']['error_logs']['details'])
         }
-        if logs["critial_logs"] or logs["error_logs"]:
-            self.is_error_occured = True
-        elif self.monitors_failed:
-            self.is_error_occured = True
-        return logs
     
-    def run_action(self):
-        if self.is_error_occured:
-            self.manager.send_message(self.get_message())
-
 
 class SpiderCloseMonitorSuite(MonitorSuite):
     monitors = [
@@ -106,7 +96,3 @@ class SpiderCloseMonitorSuite(MonitorSuite):
         CustomSendDiscordMessageSpiderFinished,
     ]
 
-    monitors_passed_actions = [
-        # CustomSendTelegramMessageSpiderFinished,
-        CustomSendDiscordMessageSpiderFinished,
-    ]
