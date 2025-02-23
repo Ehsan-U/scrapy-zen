@@ -92,7 +92,7 @@ class SpiderCloseMonitorSuite(MonitorSuite):
     ]
 
     monitors_failed_actions = [
-        # CustomSendTelegramMessageSpiderFinished,
-        CustomSendDiscordMessageSpiderFinished,
+        CustomSendTelegramMessageSpiderFinished,
+        # CustomSendDiscordMessageSpiderFinished,
     ]
 
