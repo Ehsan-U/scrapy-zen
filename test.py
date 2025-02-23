@@ -21,7 +21,6 @@ crawler = CrawlerProcess(settings={
     "ADDONS": {"scrapy_zen.addons.SpidermonAddon": 1},
     "LOG_FILE": "logs.log",
     "LOG_FILE_APPEND": False,
-    "SPIDERMON_DISCORD_MESSAGE_TEMPLATE": "scrapy_zen/templates/message.jinja"
 })
 crawler.crawl(Book)
 crawler.start()
