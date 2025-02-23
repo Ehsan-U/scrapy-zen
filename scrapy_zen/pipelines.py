@@ -87,23 +87,27 @@ class PreProcessingPipeline:
         return today == input_date
 
     def process_item(self, item: Dict, spider: Spider) -> Dict:
-        item = {k:"\n".join([" ".join(line.split()) for line in v.splitlines()]) if isinstance(v, str) else v for k,v in item.items()}
+        try:
+            item = {k:"\n".join([" ".join(line.split()) for line in v.splitlines()]) if isinstance(v, str) else v for k,v in item.items()}
 
-        _id = item.get("_id", None)
-        if _id:
-            if self.db_exists(id=_id):
-                raise DropItem(f"Already exists [{_id}]")
-        _dt = item.pop("_dt", None)
-        _dt_format = item.pop("_dt_format", None)
-        if _dt:
-            if not self.is_today(_dt, _dt_format):
-                raise DropItem(f"Outdated [{_dt}]")
-        if _id:
-            self.db_insert(id=_id, spider_name=spider.name)
-        
-        if not {k: v for k, v in item.items() if not k.startswith("_") and v}:
-            raise DropItem("Item keys have None values!")
-        return item
+            _id = item.get("_id", None)
+            if _id:
+                if self.db_exists(id=_id):
+                    raise DropItem(f"Already exists [{_id}]")
+            _dt = item.pop("_dt", None)
+            _dt_format = item.pop("_dt_format", None)
+            if _dt:
+                if not self.is_today(_dt, _dt_format):
+                    raise DropItem(f"Outdated [{_dt}]")
+            if _id:
+                self.db_insert(id=_id, spider_name=spider.name)
+            
+            if not {k: v for k, v in item.items() if not k.startswith("_") and v}:
+                raise DropItem("Item keys have None values!")
+            return item
+        except Exception as e:
+            spider.logger.error(str(e))
+            raise DropItem(str(e))
     
 
 
@@ -131,8 +135,12 @@ class DiscordPipeline:
         )
 
     async def process_item(self, item: Dict, spider: Spider) -> Dict:
-        await self._send(item, spider)
-        return item
+        try:
+            await self._send(item, spider)
+            return item
+        except Exception as e:
+            spider.logger.error(str(e))
+            raise DropItem(str(e))
 
     async def _send(self, item: Dict, spider: Spider) -> None:
         _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
@@ -185,8 +193,12 @@ class SynopticPipeline:
         )
 
     async def process_item(self, item: Dict, spider: Spider) -> Dict:
-        await self._send(item, spider)
-        return item
+        try:
+            await self._send(item, spider)
+            return item
+        except Exception as e:
+            spider.logger.error(str(e))
+            raise DropItem(str(e))
 
     async def _send(self, item: Dict, spider: Spider) -> None:
         _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
@@ -234,8 +246,12 @@ class TelegramPipeline:
         )
 
     async def process_item(self, item: Dict, spider: Spider) -> Dict:
-        await self._send(item, spider)
-        return item
+        try:
+            await self._send(item, spider)
+            return item
+        except Exception as e:
+            spider.logger.error(str(e))
+            raise DropItem(str(e))
     
     async def _send(self, item: Dict, spider: Spider) -> None:
         _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
@@ -354,17 +370,18 @@ class WSPipeline:
         await self.client.close()
 
     async def process_item(self, item: Dict, spider: Spider) -> Dict:
-        await self._send(item, spider)
-        return item
+        try:
+            await self._send(item, spider)
+            spider.logger.debug(f"Sent to WS server: {item["_id"]}")
+            return item
+        except Exception as e:
+            spider.logger.error(f"Failed to send to WS server: {item['_id']}\n{str(e)}")
+            raise DropItem(str(e))
     
     async def _send(self, item: Dict, spider: Spider) -> None:
         _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
-        try:
-            await self.client.send(json.dumps(_item))
-            spider.logger.debug(f"Sent to WS server: {item["_id"]}")
-        except Exception as e:
-            spider.logger.error(f"Failed to send to WS server: {item['_id']}\n{str(e)}")
-
+        await self.client.send(json.dumps(_item))
+            
 
 
 class HttpPipeline:
@@ -395,8 +412,12 @@ class HttpPipeline:
         return p
 
     async def process_item(self, item: Dict, spider: Spider) -> Dict:
-        await self._send(item, spider)
-        return item
+        try:
+            await self._send(item, spider)
+            return item
+        except Exception as e:
+            spider.logger.error(str(e))
+            raise DropItem(str(e))
     
     async def _send(self, item: Dict, spider: Spider) -> None:
         _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
