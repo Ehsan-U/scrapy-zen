@@ -79,6 +79,7 @@ class ZenAddon:
         # scrapy-zyte-api
         if settings.get("ZYTE_ENABLED"):
             settings.set("ZYTE_API_KEY", os.getenv("ZYTE_API_KEY"), "addon")
+            settings.set("COOKIES_ENABLED", False, "addon")
             settings.set("DOWNLOAD_HANDLERS", {
                 "http": "scrapy_zyte_api.ScrapyZyteAPIDownloadHandler",
                 "https": "scrapy_zyte_api.ScrapyZyteAPIDownloadHandler",
