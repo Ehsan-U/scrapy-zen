@@ -87,7 +87,7 @@ class PreProcessingPipeline:
             return today == input_date
         except Exception as e:
             spider.logger.error(str(e))
-            raise False
+            return False
         
     def process_item(self, item: Dict, spider: Spider) -> Dict:
         item = {k:"\n".join([" ".join(line.split()) for line in v.splitlines()]) if isinstance(v, str) else v for k,v in item.items()}
