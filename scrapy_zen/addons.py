@@ -23,7 +23,7 @@ class SpidermonAddon:
             400: 0,
         }, "addon")
         # telegram (disabled)
-        settings.set("SPIDERMON_TELEGRAM_FAKE", True, "addon")
+        settings.set("SPIDERMON_TELEGRAM_FAKE", False, "addon")
         settings.set("SPIDERMON_TELEGRAM_SENDER_TOKEN", os.getenv("SPIDERMON_TELEGRAM_SENDER_TOKEN"), "addon")
         settings.set("SPIDERMON_TELEGRAM_RECIPIENTS", ["-1002462968579"], "addon")
         settings.set('SPIDERMON_TELEGRAM_NOTIFIER_INCLUDE_ERROR_MESSAGES', True, "addon")
