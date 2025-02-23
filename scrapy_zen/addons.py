@@ -1,7 +1,7 @@
 from scrapy.settings import Settings
 import os
-from dotenv import load_dotenv
-load_dotenv()
+from .logformatter import ZenLogFormatter
+
 
 
 class SpidermonAddon:
@@ -34,6 +34,9 @@ class SpidermonAddon:
 class ZenAddon:
 
     def update_settings(self, settings: Settings) -> None:
+        # logger
+        settings.set("LOG_FORMATTER", ZenLogFormatter, "addon")
+
         # Database
         settings.set("DB_NAME", os.getenv("DB_NAME"), "addon")
         settings.set("DB_USER", os.getenv("DB_USER"), "addon")
