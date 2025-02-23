@@ -34,3 +34,14 @@ class ZenLogFormatter(logformatter.LogFormatter):
                 'item': {k:self.truncate(v) if k in self.truncate_fields else v for k,v in item.items()},
             }
         }
+    
+    def item_error(self, item: Dict, exception: DropItem, response: Response, spider: Spider) -> Dict:
+        return {
+            'level': logging.ERROR,
+            'msg': "Error processing %(item)s",
+            'args': {
+                'exception': exception,
+                'item': {k:self.truncate(v) if k in self.truncate_fields else v for k,v in item.items()},
+            }
+        }
+    

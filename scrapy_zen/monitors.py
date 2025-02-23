@@ -1,55 +1,70 @@
-import json
+# import json
 from typing import Dict
 from jinja2 import FileSystemLoader, Environment, Template
 from pkg_resources import resource_filename
-import requests
-from spidermon import MonitorSuite
+# import requests
+from spidermon import MonitorSuite, monitors
 from scrapy.settings import Settings
 from spidermon.contrib.actions.telegram.notifiers import SendTelegramMessageSpiderFinished
 from spidermon.contrib.actions.discord.notifiers import SendDiscordMessageSpiderFinished
-from spidermon.contrib.scrapy.monitors.monitors import CriticalCountMonitor, DownloaderExceptionMonitor,ErrorCountMonitor,UnwantedHTTPCodesMonitor
+from spidermon.contrib.scrapy.monitors.monitors import CriticalCountMonitor, BaseStatMonitor,ErrorCountMonitor,UnwantedHTTPCodesMonitor
 import logparser
-import logging
-logger = logging.getLogger(__name__)
+# import logging
+# logger = logging.getLogger(__name__)
 
 
-class CustomSendTelegramMessageSpiderFinished(SendTelegramMessageSpiderFinished):
-    message_template = None
+# class CustomSendTelegramMessageSpiderFinished(SendTelegramMessageSpiderFinished):
+#     message_template = None
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.manager.send_message = self.send_message
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.manager.send_message = self.send_message
 
-    def get_template(self, name: str) -> Template:
-        template_dir = resource_filename('scrapy_zen', 'templates')
-        loader = FileSystemLoader(template_dir)
-        env = Environment(loader=loader)
-        return env.get_template('message.jinja')
+#     def get_template(self, name: str) -> Template:
+#         template_dir = resource_filename('scrapy_zen', 'templates')
+#         loader = FileSystemLoader(template_dir)
+#         env = Environment(loader=loader)
+#         return env.get_template('message.jinja')
     
-    def send_message(self, to, text):
-        if self.fake:
-            logger.info(text)
-            return
-        for recipient in to:
-            self.manager._client.send_message(text, recipient)
-            self.send_file(recipient)
+#     def send_message(self, to, text):
+#         if self.fake:
+#             logger.info(text)
+#             return
+#         for recipient in to:
+#             self.manager._client.send_message(text, recipient)
+#             self.send_file(recipient)
     
-    def send_file(self, recipient, caption=None):
-        f = self.data['crawler'].settings.get("LOG_FILE")
-        if not f:
-            return  
-        api_url = "https://api.telegram.org/bot{token}/sendDocument".format(token=self.data['crawler'].settings.get("SPIDERMON_TELEGRAM_SENDER_TOKEN"))
-        data = {"chat_id": recipient}
-        if caption:
-            data["caption"] = caption
+#     def send_file(self, recipient, caption=None):
+#         f = self.data['crawler'].settings.get("LOG_FILE")
+#         if not f:
+#             return  
+#         api_url = "https://api.telegram.org/bot{token}/sendDocument".format(token=self.data['crawler'].settings.get("SPIDERMON_TELEGRAM_SENDER_TOKEN"))
+#         data = {"chat_id": recipient}
+#         if caption:
+#             data["caption"] = caption
 
-        with open(f, 'rb') as file:
-            files = {'document': file}
-            r = requests.post(api_url, data=data, files=files).json()
+#         with open(f, 'rb') as file:
+#             files = {'document': file}
+#             r = requests.post(api_url, data=data, files=files).json()
 
-        if r.get("ok") is False:
-            logger.error("Failed to send file. Telegram api error: %s", json.dumps(r))
+#         if r.get("ok") is False:
+#             logger.error("Failed to send file. Telegram api error: %s", json.dumps(r))
     
+
+@monitors.name("Downloader Exceptions monitor")
+class CustomDownloaderExceptionMonitor(BaseStatMonitor):
+    stat_name = "downloader/exception_count"
+    assert_type = "<="
+
+    @monitors.name("Should have no downloader exception")
+    def test_downloader_exception(self):
+        if self.stat_name not in self.stats:
+            self.skipTest(f"Unable to find '{self.stat_name}' in job stats.")
+        count = self.stats.get(self.stat_name)
+        threshold = self.crawler.settings.get("SPIDERMON_MAX_DOWNLOADER_EXCEPTIONS")
+        msg = f"Expecting '{self.stat_name}' to be '{self.assert_type}' to '{threshold}'. Current value: '{count}'"
+        self.assertTrue(count <= threshold, msg)
+
 
 class CustomSendDiscordMessageSpiderFinished(SendDiscordMessageSpiderFinished):
     message_template = None
@@ -88,16 +103,18 @@ class CustomSendDiscordMessageSpiderFinished(SendDiscordMessageSpiderFinished):
         }
     
 
+
+
 class SpiderCloseMonitorSuite(MonitorSuite):
     monitors = [
         CriticalCountMonitor,
-        # DownloaderExceptionMonitor,
+        CustomDownloaderExceptionMonitor,
         ErrorCountMonitor,
         UnwantedHTTPCodesMonitor,
     ]
 
     monitors_failed_actions = [
-        CustomSendTelegramMessageSpiderFinished,
-        # CustomSendDiscordMessageSpiderFinished,
+        # CustomSendTelegramMessageSpiderFinished,
+        CustomSendDiscordMessageSpiderFinished,
     ]
 
