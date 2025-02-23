@@ -19,7 +19,6 @@ class CustomSendTelegramMessageSpiderFinished(SendTelegramMessageSpiderFinished)
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.manager.send_message = self.send_message
-        self.settings = self.data['crawler'].settings
 
     def get_template(self, name: str) -> Template:
         template_dir = resource_filename('scrapy_zen', 'templates')
@@ -36,10 +35,10 @@ class CustomSendTelegramMessageSpiderFinished(SendTelegramMessageSpiderFinished)
             self.send_file(recipient)
     
     def send_file(self, recipient, caption=None):
-        f = self.settings.get("LOG_FILE")
+        f = self.data['crawler'].settings.get("LOG_FILE")
         if not f:
             return  
-        api_url = "https://api.telegram.org/bot{token}/sendDocument".format(token=self.settings.get("SPIDERMON_TELEGRAM_SENDER_TOKEN"))
+        api_url = "https://api.telegram.org/bot{token}/sendDocument".format(token=self.data['crawler'].settings.get("SPIDERMON_TELEGRAM_SENDER_TOKEN"))
         data = {"chat_id": recipient}
         if caption:
             data["caption"] = caption
