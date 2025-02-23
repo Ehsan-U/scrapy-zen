@@ -54,6 +54,7 @@ import logparser
 @monitors.name("Downloader Exceptions monitor")
 class CustomDownloaderExceptionMonitor(BaseScrapyMonitor):
     stat_name = "downloader/exception_count"
+    ignored_stat_name = "downloader/exception_type_count/scrapy.exceptions.IgnoreRequest"
     threshold_setting = "SPIDERMON_MAX_DOWNLOADER_EXCEPTIONS"
     assert_type = "<="
     fail_if_stat_missing = False
@@ -62,7 +63,7 @@ class CustomDownloaderExceptionMonitor(BaseScrapyMonitor):
     def test_downloader_exception(self):
         if self.stat_name not in self.stats:
             self.skipTest(f"Unable to find '{self.stat_name}' in job stats.")
-        count = self.stats.get(self.stat_name)
+        count = self.stats.get(self.stat_name) - self.stats.get(self.ignored_stat_name, 0)
         threshold = self.crawler.settings.get(self.threshold_setting)
         msg = f"Expecting '{self.stat_name}' to be '{self.assert_type}' to '{threshold}'. Current value: '{count}'"
         self.assertTrue(count <= threshold, msg)
