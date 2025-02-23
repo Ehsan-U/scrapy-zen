@@ -78,14 +78,17 @@ class PreProcessingPipeline:
         self._cursor.execute("DELETE FROM Items WHERE timestamp < NOW() - INTERVAL '%s days'", (self.settings.getint("DB_EXPIRY_DAYS"),))
         self._conn.commit()
 
-    @staticmethod
-    def is_today(date_str: str, date_format: str = None) -> bool:
-        if not date_str:
-            return True
-        today = datetime.now(ZoneInfo('America/New_York')).date()
-        input_date = dateparser.parse(date_string=date_str, date_formats=[date_format] if date_format is not None else None).date()
-        return today == input_date
-
+    def is_today(date_str: str, date_format: str = None, spider: Spider = None) -> bool:
+        try:
+            if not date_str:
+                return True
+            today = datetime.now(ZoneInfo('America/New_York')).date()
+            input_date = dateparser.parse(date_string=date_str, date_formats=[date_format] if date_format is not None else None).date()
+            return today == input_date
+        except Exception as e:
+            spider.logger.error(str(e))
+            raise e
+        
     def process_item(self, item: Dict, spider: Spider) -> Dict:
         item = {k:"\n".join([" ".join(line.split()) for line in v.splitlines()]) if isinstance(v, str) else v for k,v in item.items()}
 
@@ -150,6 +153,7 @@ class DiscordPipeline:
                     }),
                     headers={"Content-Type": "application/json"},
                     callback=NO_CALLBACK,
+                    errback=lambda f: spider.logger.error((f.value))
                 ),
             )
         )
@@ -197,7 +201,8 @@ class SynopticPipeline:
                     body=json.dumps(_item),
                     method="POST",
                     headers={"content-type": "application/json", 'x-api-key': self.api_key},
-                    callback=NO_CALLBACK
+                    callback=NO_CALLBACK,
+                    errback=lambda f: spider.logger.error((f.value))
                 )
             )
         )
@@ -246,7 +251,8 @@ class TelegramPipeline:
                     body=json.dumps(_item),
                     method="POST",
                     headers={"content-type": "application/json", 'authorization': self.token},
-                    callback=NO_CALLBACK
+                    callback=NO_CALLBACK,
+                    errback=lambda f: spider.logger.error((f.value))
                 )
             )
         )
@@ -407,7 +413,8 @@ class HttpPipeline:
                     body=json.dumps(_item),
                     method="POST",
                     headers={"content-type": "application/json","authorization":self.token},
-                    callback=NO_CALLBACK
+                    callback=NO_CALLBACK,
+                    errback=lambda f: spider.logger.error((f.value))
                 )
             )
         )
