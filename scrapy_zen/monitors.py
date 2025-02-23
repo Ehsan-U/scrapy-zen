@@ -86,7 +86,7 @@ class CustomSendDiscordMessageSpiderFinished(SendDiscordMessageSpiderFinished):
 class SpiderCloseMonitorSuite(MonitorSuite):
     monitors = [
         CriticalCountMonitor,
-        DownloaderExceptionMonitor,
+        # DownloaderExceptionMonitor,
         ErrorCountMonitor,
         UnwantedHTTPCodesMonitor,
     ]
