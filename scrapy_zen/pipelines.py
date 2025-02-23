@@ -141,7 +141,13 @@ class DiscordPipeline:
                 scrapy.Request(
                     url=self.uri,
                     method="POST",
-                    body=json.dumps(_item),
+                    body=json.dumps({
+                        "embeds": [{
+                            "title": "Alert",
+                            "description": json.dumps(_item),
+                            "color": int("03b2f8", 16)
+                        }]
+                    }),
                     headers={"Content-Type": "application/json"},
                     callback=NO_CALLBACK,
                 ),
