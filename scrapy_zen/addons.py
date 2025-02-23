@@ -20,6 +20,7 @@ class SpidermonAddon:
         settings.set("SPIDERMON_UNWANTED_HTTP_CODES", {
             403: 0,
             429: 0,
+            400: 0,
         }, "addon")
         # telegram (disabled)
         settings.set("SPIDERMON_TELEGRAM_FAKE", True, "addon")
