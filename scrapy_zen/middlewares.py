@@ -64,14 +64,17 @@ class PreProcessingMiddleware:
         _dt = request.meta.pop("_dt", None)
         _dt_format = request.meta.pop("_dt_format", None)
         if _dt:
-            if not self.is_today(_dt, _dt_format):
+            if not self.is_today(_dt, _dt_format, spider):
                 raise IgnoreRequest
         return None
     
-    @staticmethod
-    def is_today(date_str: str, date_format: str = None) -> bool:
-        if not date_str:
-            return True
-        today = datetime.now(ZoneInfo('America/New_York')).date()
-        input_date = dateparser.parse(date_string=date_str, date_formats=[date_format] if date_format is not None else None).date()
-        return today == input_date
+    def is_today(date_str: str, date_format: str = None, spider: Spider = None) -> bool:
+        try:
+            if not date_str:
+                return True
+            today = datetime.now(ZoneInfo('America/New_York')).date()
+            input_date = dateparser.parse(date_string=date_str, date_formats=[date_format] if date_format is not None else None).date()
+            return today == input_date
+        except Exception as e:
+            spider.logger.error(str(e))
+            return False

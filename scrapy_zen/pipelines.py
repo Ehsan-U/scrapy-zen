@@ -87,7 +87,7 @@ class PreProcessingPipeline:
             return today == input_date
         except Exception as e:
             spider.logger.error(str(e))
-            raise e
+            raise False
         
     def process_item(self, item: Dict, spider: Spider) -> Dict:
         item = {k:"\n".join([" ".join(line.split()) for line in v.splitlines()]) if isinstance(v, str) else v for k,v in item.items()}
@@ -99,7 +99,7 @@ class PreProcessingPipeline:
         _dt = item.pop("_dt", None)
         _dt_format = item.pop("_dt_format", None)
         if _dt:
-            if not self.is_today(_dt, _dt_format):
+            if not self.is_today(_dt, _dt_format, spider):
                 raise DropItem(f"Outdated [{_dt}]")
         if _id:
             self.db_insert(id=_id, spider_name=spider.name)
