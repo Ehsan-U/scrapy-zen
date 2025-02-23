@@ -41,27 +41,30 @@ class ZenAddon:
         settings.set("DB_PORT", os.getenv("DB_PORT"), "addon")
 
         # discord
-        settings.set("DISCORD_WEBHOOK_URI", os.getenv("DISCORD_WEBHOOK_URI"), "addon")
+        settings.set("DISCORD_SERVER_URI", os.getenv("DISCORD_SERVER_URI"), "addon")
 
         # synoptic
+        settings.set("SYNOPTIC_SERVER_URI", os.getenv("SYNOPTIC_SERVER_URI"), "addon")
         settings.set("SYNOPTIC_STREAM_ID", os.getenv("SYNOPTIC_STREAM_ID"), "addon")
         settings.set("SYNOPTIC_API_KEY", os.getenv("SYNOPTIC_API_KEY"), "addon")
 
         # telegram
+        settings.set("TELEGRAM_SERVER_URI", os.getenv("TELEGRAM_SERVER_URI"), "addon")
         settings.set("TELEGRAM_TOKEN", os.getenv("TELEGRAM_TOKEN"), "addon")
         settings.set("TELEGRAM_CHAT_ID", os.getenv("TELEGRAM_CHAT_ID"), "addon")
-        settings.set("TELEGRAM_WEBHOOK_URI", os.getenv("TELEGRAM_WEBHOOK_URI"), "addon")
 
         # gRPC
-        settings.set("GRPC_SERVER_ADDRESS", os.getenv("GRPC_SERVER_ADDRESS"), "addon")
+        settings.set("GRPC_SERVER_URI", os.getenv("GRPC_SERVER_URI"), "addon")
         settings.set("GRPC_TOKEN", os.getenv("GRPC_TOKEN"), "addon")
         settings.set("GRPC_ID", os.getenv("GRPC_ID"), "addon")
+        settings.set("GRPC_PROTO_MODULE", os.getenv("GRPC_PROTO_MODULE"), "addon")
 
         # websocket
         settings.set("WS_SERVER_URI", os.getenv("WS_SERVER_URI"), "addon")
 
         # custom http webhook
         settings.set("HTTP_SERVER_URI", os.getenv("HTTP_SERVER_URI"), "addon")
+        settings.set("HTTP_TOKEN", os.getenv("HTTP_TOKEN"), "addon")
 
         # # download handler
         # settings.set("DOWNLOAD_HANDLERS", {
@@ -71,6 +74,7 @@ class ZenAddon:
 
         # scrapy-zyte-api
         if settings.get("ZYTE_ENABLED"):
+            settings.set("ZYTE_API_KEY", os.getenv("ZYTE_API_KEY"), "addon")
             settings.set("DOWNLOAD_HANDLERS", {
                 "http": "scrapy_zyte_api.ScrapyZyteAPIDownloadHandler",
                 "https": "scrapy_zyte_api.ScrapyZyteAPIDownloadHandler",

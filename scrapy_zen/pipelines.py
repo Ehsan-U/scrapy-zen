@@ -1,7 +1,6 @@
-from functools import wraps
 import importlib
 import json
-from typing import Dict, Callable, List, Self
+from typing import Dict, List, Self
 import grpc
 import scrapy
 from scrapy.crawler import Crawler
@@ -18,7 +17,6 @@ from scrapy import signals
 import websockets
 import psycopg
 from zoneinfo import ZoneInfo
-
 
 
 class PreProcessingPipeline:
