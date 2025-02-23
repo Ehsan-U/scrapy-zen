@@ -7,7 +7,7 @@ from spidermon import MonitorSuite, monitors
 from scrapy.settings import Settings
 from spidermon.contrib.actions.telegram.notifiers import SendTelegramMessageSpiderFinished
 from spidermon.contrib.actions.discord.notifiers import SendDiscordMessageSpiderFinished
-from spidermon.contrib.scrapy.monitors.monitors import CriticalCountMonitor, BaseStatMonitor,ErrorCountMonitor,UnwantedHTTPCodesMonitor
+from spidermon.contrib.scrapy.monitors.monitors import CriticalCountMonitor, BaseScrapyMonitor,ErrorCountMonitor,UnwantedHTTPCodesMonitor
 import logparser
 # import logging
 # logger = logging.getLogger(__name__)
@@ -52,16 +52,18 @@ import logparser
     
 
 @monitors.name("Downloader Exceptions monitor")
-class CustomDownloaderExceptionMonitor(BaseStatMonitor):
+class CustomDownloaderExceptionMonitor(BaseScrapyMonitor):
     stat_name = "downloader/exception_count"
+    threshold_setting = "SPIDERMON_MAX_DOWNLOADER_EXCEPTIONS"
     assert_type = "<="
+    fail_if_stat_missing = False
 
     @monitors.name("Should have no downloader exception")
     def test_downloader_exception(self):
         if self.stat_name not in self.stats:
             self.skipTest(f"Unable to find '{self.stat_name}' in job stats.")
         count = self.stats.get(self.stat_name)
-        threshold = self.crawler.settings.get("SPIDERMON_MAX_DOWNLOADER_EXCEPTIONS")
+        threshold = self.crawler.settings.get(self.threshold_setting)
         msg = f"Expecting '{self.stat_name}' to be '{self.assert_type}' to '{threshold}'. Current value: '{count}'"
         self.assertTrue(count <= threshold, msg)
 
