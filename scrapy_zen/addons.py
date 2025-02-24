@@ -18,6 +18,7 @@ class SpidermonAddon:
         settings.set("SPIDERMON_MAX_DOWNLOADER_EXCEPTIONS", 0, "addon")
         settings.set("SPIDERMON_MAX_ERRORS", 0, "addon")
         settings.set("SPIDERMON_UNWANTED_HTTP_CODES", {
+            401: 0,
             403: 0,
             429: 0,
             400: 0,
