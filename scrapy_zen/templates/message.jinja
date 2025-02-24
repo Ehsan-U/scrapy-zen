@@ -12,11 +12,15 @@
 ```
 {% endif %}
 
-{%- if error_logs -%}
+{%- if critical_logs %}
 ```python
 ===== CRITICAL =====
-{{ critial_logs }}
+{{ critical_logs }}
+```
+{%- endif %}
+{%- if error_logs %}
+```python
 ===== ERROR =====
 {{ error_logs }}
 ```
-{% endif %}
+{%- endif %}
