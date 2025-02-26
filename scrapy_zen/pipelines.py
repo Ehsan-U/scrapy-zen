@@ -17,6 +17,8 @@ from scrapy import signals
 import websockets
 import psycopg
 from zoneinfo import ZoneInfo
+import logging
+logging.getLogger("websockets").setLevel(logging.WARNING)
 
 
 class PreProcessingPipeline:
