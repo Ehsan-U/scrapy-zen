@@ -354,7 +354,7 @@ class WSPipeline:
         return p
 
     async def spider_opened(self, spider: Spider) -> None:
-        self.client = await websockets.connect(self.ws_server_uri)
+        self.client = await websockets.connect(self.uri)
 
     async def spider_closed(self, spider: Spider) -> None:
         await self.client.close()
