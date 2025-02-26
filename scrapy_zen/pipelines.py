@@ -372,6 +372,7 @@ class WSPipeline:
             spider.logger.debug(f"Sent to WS server: {item["_id"]}")
         except Exception as e:
             spider.logger.error(f"Failed to send to WS server: {item['_id']}\n{str(e)}")
+            self.client = await websockets.connect(self.uri)
 
 
 
