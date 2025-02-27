@@ -4,7 +4,7 @@ from scrapy.exceptions import ContractFail
 from itemadapter import ItemAdapter, is_item
 
 
-class CustomScrapesContract(Contract):
+class ScrapesContract(Contract):
     """Contract to check presence of fields in scraped items
     @scrapes page_name page_body
     """

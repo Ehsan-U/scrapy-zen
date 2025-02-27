@@ -110,9 +110,3 @@ class ZenAddon:
             }, "addon")
             settings.set("USER_AGENT", None, "addon")
             settings.set("TWISTED_REACTOR", "twisted.internet.asyncioreactor.AsyncioSelectorReactor", "addon")
-
-        # tests
-        settings["SPIDER_CONTRACTS"].update({
-            "scrapy.contracts.default.ScrapesContract": None,
-            "scrapy_zen.contracts.CustomScrapesContract": 100,
-        })
