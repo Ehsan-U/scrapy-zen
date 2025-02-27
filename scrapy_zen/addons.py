@@ -113,5 +113,6 @@ class ZenAddon:
 
         # tests
         settings["SPIDER_CONTRACTS"].update({
+            "scrapy.contracts.default.ScrapesContract": None,
             "scrapy_zen.contracts.ScrapesContract": 100,
         })
