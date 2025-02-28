@@ -13,6 +13,9 @@ from scrapy.logformatter import LogFormatterResult
 
 
 class ZenLogFormatter(logformatter.LogFormatter):
+    YELLOW = "\033[33m"
+    RED = "\033[31m"
+    RESET = "\033[0m"
     default_truncate_events: List[str] = ["dropped","item_error"]
     
     def __init__(self, truncate_fields: List[str], truncate_events: List[str]) -> None:
@@ -36,7 +39,7 @@ class ZenLogFormatter(logformatter.LogFormatter):
         if "dropped" in self.truncate_events:
             return {
                 'level': logging.WARNING,
-                'msg': "Dropped: %(exception)s" + os.linesep + "%(item)s",
+                'msg': self.YELLOW + "Dropped: %(exception)s" + self.RESET + os.linesep + "%(item)s",
                 'args': {
                     'exception': exception,
                     'item': {k:self.truncate(v) if k in self.truncate_fields else v for k,v in item.items()},
@@ -49,7 +52,7 @@ class ZenLogFormatter(logformatter.LogFormatter):
         if "item_error" in self.truncate_events:
             return {
                 'level': logging.ERROR,
-                'msg': "Error processing %(item)s",
+                'msg': self.RED + "Error processing %(item)s" + self.RESET,
                 'args': {
                     'exception': exception,
                     'item': {k:self.truncate(v) if k in self.truncate_fields else v for k,v in item.items()},
