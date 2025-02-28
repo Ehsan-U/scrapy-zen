@@ -1,5 +1,6 @@
 {%- if monitors_failed %}
-\[{{ bot_name }}\] **Spider `{{ data.spider.name }}` Failed**
+{%- set bot_name = bot_name | replace('_', '-') %}
+**Spider `{{ data.spider.name }}` Failed** <`{{bot_name}}`>
 `{{ result.monitors_failed_results|length }}` error(s) detected{% else %}
 {{ "🎉"}} "`{{ data.spider.name }}`" spider finished! {{ "\n" }}
 {% endif %}

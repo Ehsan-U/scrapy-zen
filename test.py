@@ -1,6 +1,8 @@
 import scrapy
 from scrapy.crawler import CrawlerProcess
 import logging
+from dotenv import load_dotenv
+load_dotenv()
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
 class Book(scrapy.Spider):
@@ -8,6 +10,7 @@ class Book(scrapy.Spider):
     start_urls = ['https://books.toscrape.com/']
 
     def parse(self, response):
+        self.logger.error("testing")
         for book in response.xpath("//article"):
             yield {
                 "_id": book.xpath(".//h3/a/text()").get(),
@@ -28,6 +31,7 @@ crawler = CrawlerProcess(settings={
     },
     "LOG_FILE": "logs.log",
     "LOG_FILE_APPEND": False,
+    "BOT_NAME": "culture_entertainment",
 })
 crawler.crawl(Book)
 crawler.start()
