@@ -13,10 +13,11 @@ from scrapy.logformatter import LogFormatterResult
 
 
 class ZenLogFormatter(logformatter.LogFormatter):
+    default_truncate_events: List[str] = ["dropped","item_error"]
     
     def __init__(self, truncate_fields: List[str], truncate_events: List[str]) -> None:
         self.truncate_fields = truncate_fields
-        self.truncate_events = truncate_events
+        self.truncate_events = self.default_truncate_events + truncate_events
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
