@@ -42,6 +42,7 @@ class CustomSendDiscordMessageSpiderFinished(SendDiscordMessageSpiderFinished):
         context = {
             "result": self.result,
             "data": self.data,
+            "bot_name": self.data['crawler'].settings.get("BOT_NAME"),
             "monitors_passed": self.monitors_passed,
             "monitors_failed": self.monitors_failed,
             "include_ok_messages": self.include_ok_messages,
@@ -79,6 +80,7 @@ class CustomSendTelegramMessageSpiderFinished(SendTelegramMessageSpiderFinished)
         context = {
             "result": self.result,
             "data": self.data,
+            "bot_name": self.data['crawler'].settings.get("BOT_NAME"),
             "monitors_passed": self.monitors_passed,
             "monitors_failed": self.monitors_failed,
             "include_ok_messages": self.include_ok_messages,
