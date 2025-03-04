@@ -80,7 +80,7 @@ class PreProcessingPipeline:
         self._cursor.execute("DELETE FROM Items WHERE timestamp < NOW() - INTERVAL '%s days'", (self.settings.getint("DB_EXPIRY_DAYS"),))
         self._conn.commit()
 
-    def is_today(self, date_str: str, date_format: str = None, spider: Spider = None) -> bool:
+    def is_today(self, date_str: str, date_format: str, debug_info: str, spider: Spider) -> bool:
         try:
             if not date_str:
                 return True
@@ -88,7 +88,7 @@ class PreProcessingPipeline:
             input_date = dateparser.parse(date_string=date_str, date_formats=[date_format] if date_format is not None else None).date()
             return today == input_date
         except Exception as e:
-            spider.logger.error(str(e))
+            spider.logger.error(f"{str(e)}: {debug_info}")
             return False
         
     def process_item(self, item: Dict, spider: Spider) -> Dict:
@@ -101,7 +101,7 @@ class PreProcessingPipeline:
         _dt = item.pop("_dt", None)
         _dt_format = item.pop("_dt_format", None)
         if _dt:
-            if not self.is_today(_dt, _dt_format, spider):
+            if not self.is_today(_dt, _dt_format, item.get("_id"), spider):
                 raise DropItem(f"Outdated [{_dt}]")
         if _id:
             self.db_insert(id=_id, spider_name=spider.name)
