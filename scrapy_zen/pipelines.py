@@ -88,7 +88,7 @@ class PreProcessingPipeline:
             input_date = dateparser.parse(date_string=date_str, date_formats=[date_format] if date_format is not None else None).date()
             return today == input_date
         except Exception as e:
-            spider.logger.error(f"{str(e)}: {debug_info}")
+            spider.logger.error(f"{str(e)}: {debug_info} ")
             return False
         
     def process_item(self, item: Dict, spider: Spider) -> Dict:
