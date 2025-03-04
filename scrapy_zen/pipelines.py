@@ -108,8 +108,6 @@ class PreProcessingPipeline:
         
         if not {k: v for k, v in item.items() if not k.startswith("_") and v}:
             raise DropItem("Item keys have None values!")
-        if "body" in item and not item['body']:
-            spider.logger.warning("body field has no value !")
         return item
     
 
