@@ -92,7 +92,7 @@ class PreProcessingPipeline:
             return False
         
     def process_item(self, item: Dict, spider: Spider) -> Dict:
-        item = {k:"\n".join([" ".join(line.split()) for line in v.splitlines()]) if isinstance(v, str) else v for k,v in item.items()}
+        item = {k:"\n".join([" ".join(line.split()) for line in v.strip().splitlines()]) if isinstance(v, str) else v for k,v in item.items()}
 
         _id = item.get("_id", None)
         if _id:
