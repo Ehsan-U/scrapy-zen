@@ -98,13 +98,12 @@ class PreProcessingPipeline:
         if _id:
             if self.db_exists(id=_id):
                 raise DropItem(f"Already exists [{_id}]")
+            self.db_insert(id=_id, spider_name=spider.name)
         _dt = item.pop("_dt", None)
         _dt_format = item.pop("_dt_format", None)
         if _dt:
             if not self.is_today(_dt, _dt_format, item.get("_id"), spider):
                 raise DropItem(f"Outdated [{_dt}]")
-        if _id:
-            self.db_insert(id=_id, spider_name=spider.name)
         
         if not {k: v for k, v in item.items() if not k.startswith("_") and v}:
             raise DropItem("Item keys have None values!")
