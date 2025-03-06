@@ -63,6 +63,7 @@ class PreProcessingPipeline:
         """)
         self._conn.commit()
         if self.settings.getint("DB_EXPIRY_DAYS"):
+            spider.logger.warning("Expiration enabled for DB records")
             self._cleanup_old_records()
 
     def close_spider(self, spider: Spider) -> None:
