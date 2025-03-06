@@ -62,6 +62,8 @@ class PreProcessingPipeline:
         )
         """)
         self._conn.commit()
+        if self.settings.getint("DB_EXPIRY_DAYS"):
+            self._cleanup_old_records()
 
     def close_spider(self, spider: Spider) -> None:
         if hasattr(self, "_conn"):
