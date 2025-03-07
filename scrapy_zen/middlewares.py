@@ -74,7 +74,7 @@ class PreProcessingMiddleware:
                 return True
             today = datetime.now(ZoneInfo('America/New_York')).date()
             input_date = dateparser.parse(date_string=date_str, date_formats=[date_format] if date_format is not None else None).date()
-            return today == input_date
+            return input_date >= today
         except Exception as e:
             spider.logger.error(f"{str(e)}: {date_str} {debug_info} ")
             return False
