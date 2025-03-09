@@ -28,7 +28,7 @@ class ZenLogFormatter(logformatter.LogFormatter):
         return cls(
             truncate_fields=crawler.settings.getlist("FORMATTER_TRUNCATE_FIELDS", []),
             truncate_events=crawler.settings.get("FORMATTER_TRUNCATE_EVENTS", []),
-            scraped_item_log_level=crawler.settings.get("SCRAPED_ITEM_LOG_LEVEL", "DEBUG"),
+            scraped_item_log_level=crawler.settings.get("FORMATTER_SCRAPED_LOG_LEVEL", "DEBUG"),
         )
     
     @staticmethod
