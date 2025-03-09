@@ -74,7 +74,7 @@ class ZenLogFormatter(logformatter.LogFormatter):
                 src = response
             return {
                 "level": logging.INFO if self.scraped_item_log_level == "INFO" else logging.DEBUG,
-                "msg": "Scraped from %(src)s" + os.linesep + "%(item)s",
+                "msg": "Scraped" + os.linesep + "%(item)s" if self.scraped_item_log_level == "INFO" else "Scraped from %(src)s" + os.linesep + "%(item)s",
                 "args": {
                     "src": src,
                     "item": {k:self.truncate(v) if k in self.truncate_fields else v for k,v in item.items()},
