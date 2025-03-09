@@ -18,15 +18,17 @@ class ZenLogFormatter(logformatter.LogFormatter):
     RESET = "\033[0m"
     default_truncate_events: List[str] = ["dropped","item_error"]
     
-    def __init__(self, truncate_fields: List[str], truncate_events: List[str]) -> None:
+    def __init__(self, truncate_fields: List[str], truncate_events: List[str], scraped_item_log_level: str) -> None:
         self.truncate_fields = truncate_fields
         self.truncate_events = self.default_truncate_events + truncate_events
+        self.scraped_item_log_level = scraped_item_log_level
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
         return cls(
             truncate_fields=crawler.settings.getlist("FORMATTER_TRUNCATE_FIELDS", []),
             truncate_events=crawler.settings.get("FORMATTER_TRUNCATE_EVENTS", []),
+            scraped_item_log_level=crawler.settings.get("SCRAPED_ITEM_LOG_LEVEL", "DEBUG"),
         )
     
     @staticmethod
@@ -71,7 +73,7 @@ class ZenLogFormatter(logformatter.LogFormatter):
             else:
                 src = response
             return {
-                "level": logging.DEBUG,
+                "level": logging.INFO if self.scraped_item_log_level == "INFO" else logging.DEBUG,
                 "msg": "Scraped from %(src)s" + os.linesep + "%(item)s",
                 "args": {
                     "src": src,
