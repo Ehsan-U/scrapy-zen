@@ -101,7 +101,7 @@ class PreProcessingPipeline:
         if _id:
             if self.db_exists(id=_id):
                 raise DropItem(f"Already exists [{_id}]")
-            self.db_insert(id=_id, spider_name=spider.name)
+            # self.db_insert(id=_id, spider_name=spider.name)
         _dt = item.pop("_dt", None)
         _dt_format = item.pop("_dt_format", None)
         if _dt:
@@ -112,6 +112,56 @@ class PreProcessingPipeline:
             raise DropItem("Item keys have None values!")
         return item
     
+
+class PostProcessingPipeline:
+    """
+    Pipeline to postprocess items.
+    Handles DB insertion.
+
+    Attributes:
+        settings (Settings): crawler settings object
+    """
+
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+
+    @classmethod
+    def from_crawler(cls, crawler: Crawler) -> Self:
+        settings = ["DB_NAME","DB_HOST","DB_PORT","DB_USER","DB_PASS"]
+        for setting in settings:
+            if not crawler.settings.get(setting):
+                raise NotConfigured(f"{setting} is not set")
+        return cls(
+            settings=crawler.settings 
+        )
+
+    def open_spider(self, spider: Spider) -> None:
+        try:
+            self._conn = psycopg.Connection.connect(f"""
+                dbname={self.settings.get("DB_NAME")} 
+                user={self.settings.get("DB_USER")} 
+                password={self.settings.get("DB_PASS")} 
+                host={self.settings.get("DB_HOST")} 
+                port={self.settings.get("DB_PORT")}
+            """)
+        except:
+            raise NotConfigured("Failed to connect to DB")
+        self._cursor = self._conn.cursor()
+
+    def close_spider(self, spider: Spider) -> None:
+        if hasattr(self, "_conn"):
+            self._conn.commit()
+            self._conn.close()
+
+    def db_insert(self, id: str, spider_name: str) -> None:
+        self._cursor.execute("INSERT INTO Items (id,spider) VALUES (%s,%s)", (id,spider_name))
+        self._conn.commit()
+
+    def process_item(self, item: Dict, spider: Spider) -> Dict:
+        _id = item.get("_id")
+        if _id:
+            self.db_insert(id=_id, spider_name=spider.name)
+        return item
 
 
 class DiscordPipeline:
@@ -142,25 +192,29 @@ class DiscordPipeline:
         return item
 
     async def _send(self, item: Dict, spider: Spider) -> None:
-        _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
-        await maybe_deferred_to_future(
-            spider.crawler.engine.download(
-                scrapy.Request(
-                    url=self.uri,
-                    method="POST",
-                    body=json.dumps({
-                        "embeds": [{
-                            "title": "Alert",
-                            "description": json.dumps(_item),
-                            "color": int("03b2f8", 16)
-                        }]
-                    }),
-                    headers={"Content-Type": "application/json"},
-                    callback=NO_CALLBACK,
-                    errback=lambda f: spider.logger.error((f.value))
-                ),
+        try:
+            _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
+            await maybe_deferred_to_future(
+                spider.crawler.engine.download(
+                    scrapy.Request(
+                        url=self.uri,
+                        method="POST",
+                        body=json.dumps({
+                            "embeds": [{
+                                "title": "Alert",
+                                "description": json.dumps(_item),
+                                "color": int("03b2f8", 16)
+                            }]
+                        }),
+                        headers={"Content-Type": "application/json"},
+                        callback=NO_CALLBACK,
+                        errback=lambda f: spider.logger.error((f.value))
+                    ),
+                )
             )
-        )
+        except Exception as e:
+            spider.logger.error(f"Failed to send to Discord: {item['_id']}\n{str(e)}")
+            raise DropItem()
 
 
 
@@ -197,19 +251,23 @@ class SynopticPipeline:
         return item
 
     async def _send(self, item: Dict, spider: Spider) -> None:
-        _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
-        await maybe_deferred_to_future(
-            spider.crawler.engine.download(
-                scrapy.Request(
-                    url=self.uri,
-                    body=json.dumps(_item),
-                    method="POST",
-                    headers={"content-type": "application/json", 'x-api-key': self.api_key},
-                    callback=NO_CALLBACK,
-                    errback=lambda f: spider.logger.error((f.value))
+        try:
+            _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
+            await maybe_deferred_to_future(
+                spider.crawler.engine.download(
+                    scrapy.Request(
+                        url=self.uri,
+                        body=json.dumps(_item),
+                        method="POST",
+                        headers={"content-type": "application/json", 'x-api-key': self.api_key},
+                        callback=NO_CALLBACK,
+                        errback=lambda f: spider.logger.error((f.value))
+                    )
                 )
             )
-        )
+        except Exception as e:
+            spider.logger.error(f"Failed to send to Synoptic: {item['_id']}\n{str(e)}")
+            raise DropItem()
 
 
 
@@ -247,19 +305,23 @@ class TelegramPipeline:
         return item
     
     async def _send(self, item: Dict, spider: Spider) -> None:
-        _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
-        await maybe_deferred_to_future(
-            spider.crawler.engine.download(
-                scrapy.Request(
-                    url=self.uri,
-                    body=json.dumps(_item),
-                    method="POST",
-                    headers={"content-type": "application/json", 'authorization': self.token},
-                    callback=NO_CALLBACK,
-                    errback=lambda f: spider.logger.error((f.value))
+        try:
+            _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
+            await maybe_deferred_to_future(
+                spider.crawler.engine.download(
+                    scrapy.Request(
+                        url=self.uri,
+                        body=json.dumps(_item),
+                        method="POST",
+                        headers={"content-type": "application/json", 'authorization': self.token},
+                        callback=NO_CALLBACK,
+                        errback=lambda f: spider.logger.error((f.value))
+                    )
                 )
             )
-        )
+        except Exception as e:
+            spider.logger.error(f"Failed to send to Telegram: {item['_id']}\n{str(e)}")
+            raise DropItem()
 
 
 
@@ -313,9 +375,12 @@ class GRPCPipeline:
         def _on_success(result) -> Dict:
             spider.logger.debug(f"Sent to gRPC server: {item['_id']}")
             return item
+        def _on_failure(failure) -> None:
+            spider.logger.error(f"Failed to send to gRPC server: {item['_id']}\n{failure.value}")
+            raise DropItem()
         d = deferToThread(self._submit, feed_message)
         d.addCallback(_on_success)
-        d.addErrback(lambda f: spider.logger.error(f"Failed to send to gRPC server: {item['_id']}\n{f.value}"))
+        d.addErrback(_on_failure)
         return d
 
     def _submit(self, feed_message) -> None:
@@ -375,7 +440,7 @@ class WSPipeline:
         except Exception as e:
             spider.logger.error(f"Failed to send to WS server: {item['_id']}\n{str(e)}")
             self.client = await websockets.connect(self.uri)
-
+            raise DropItem()
 
 
 class HttpPipeline:
@@ -410,16 +475,20 @@ class HttpPipeline:
         return item
     
     async def _send(self, item: Dict, spider: Spider) -> None:
-        _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
-        await maybe_deferred_to_future(
-            spider.crawler.engine.download(
-                scrapy.Request(
-                    url=self.uri,
-                    body=json.dumps(_item),
-                    method="POST",
-                    headers={"content-type": "application/json","authorization":self.token},
-                    callback=NO_CALLBACK,
-                    errback=lambda f: spider.logger.error((f.value))
+        try:
+            _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
+            await maybe_deferred_to_future(
+                spider.crawler.engine.download(
+                    scrapy.Request(
+                        url=self.uri,
+                        body=json.dumps(_item),
+                        method="POST",
+                        headers={"content-type": "application/json","authorization":self.token},
+                        callback=NO_CALLBACK,
+                        errback=lambda f: spider.logger.error((f.value))
+                    )
                 )
             )
-        )
+        except Exception as e:
+            spider.logger.error(f"Failed to send to HttpWebhook: {item['_id']}\n{str(e)}")
+            raise DropItem()
