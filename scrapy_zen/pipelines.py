@@ -40,16 +40,16 @@ class PreProcessingPipeline:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
         return cls(
-            settings=crawler.settings 
+            settings=crawler.settings
         )
 
     def open_spider(self, spider: Spider) -> None:
         try:
             self._conn = psycopg.Connection.connect(f"""
-                dbname={self.settings.get("DB_NAME")} 
-                user={self.settings.get("DB_USER")} 
-                password={self.settings.get("DB_PASS")} 
-                host={self.settings.get("DB_HOST")} 
+                dbname={self.settings.get("DB_NAME")}
+                user={self.settings.get("DB_USER")}
+                password={self.settings.get("DB_PASS")}
+                host={self.settings.get("DB_HOST")}
                 port={self.settings.get("DB_PORT")}
             """)
         except:
@@ -62,9 +62,10 @@ class PreProcessingPipeline:
         )
         """)
         self._conn.commit()
-        if self.settings.getint("DB_EXPIRY_DAYS"):
+        days = self.settings.getint("DB_EXPIRY_DAYS")
+        if days:
             spider.logger.warning("Expiration enabled for DB records")
-            self._cleanup_old_records()
+            self._cleanup_old_records(days)
 
     def close_spider(self, spider: Spider) -> None:
         if hasattr(self, "_conn"):
@@ -79,8 +80,8 @@ class PreProcessingPipeline:
         record = self._cursor.execute("SELECT id FROM Items WHERE id = %s", (id,)).fetchone()
         return bool(record)
 
-    def _cleanup_old_records(self) -> None:
-        self._cursor.execute("DELETE FROM Items WHERE timestamp < NOW() - INTERVAL '%s days'", (self.settings.getint("DB_EXPIRY_DAYS"),))
+    def _cleanup_old_records(self, days: int) -> None:
+        self._cursor.execute("DELETE FROM Items WHERE timestamp < NOW() - (INTERVAL '1 day' * %s)", (days,))
         self._conn.commit()
 
     def is_today(self, date_str: str, date_format: str, debug_info: str, spider: Spider) -> bool:
@@ -93,7 +94,7 @@ class PreProcessingPipeline:
         except Exception as e:
             spider.logger.error(f"{str(e)}: {debug_info} ")
             return False
-        
+
     def process_item(self, item: Dict, spider: Spider) -> Dict:
         item = {k:"\n".join([" ".join(line.split()) for line in v.strip().splitlines()]) if isinstance(v, str) else v for k,v in item.items()}
 
@@ -107,11 +108,11 @@ class PreProcessingPipeline:
         if _dt:
             if not self.is_today(_dt, _dt_format, item.get("_id"), spider):
                 raise DropItem(f"Outdated [{_dt}]")
-        
+
         if not {k: v for k, v in item.items() if not k.startswith("_") and v}:
             raise DropItem("Item keys have None values!")
         return item
-    
+
 
 class PostProcessingPipeline:
     """
@@ -132,16 +133,16 @@ class PostProcessingPipeline:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
         return cls(
-            settings=crawler.settings 
+            settings=crawler.settings
         )
 
     def open_spider(self, spider: Spider) -> None:
         try:
             self._conn = psycopg.Connection.connect(f"""
-                dbname={self.settings.get("DB_NAME")} 
-                user={self.settings.get("DB_USER")} 
-                password={self.settings.get("DB_PASS")} 
-                host={self.settings.get("DB_HOST")} 
+                dbname={self.settings.get("DB_NAME")}
+                user={self.settings.get("DB_USER")}
+                password={self.settings.get("DB_PASS")}
+                host={self.settings.get("DB_HOST")}
                 port={self.settings.get("DB_PORT")}
             """)
         except:
@@ -303,7 +304,7 @@ class TelegramPipeline:
     async def process_item(self, item: Dict, spider: Spider) -> Dict:
         await self._send(item, spider)
         return item
-    
+
     async def _send(self, item: Dict, spider: Spider) -> None:
         try:
             _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
@@ -363,7 +364,7 @@ class GRPCPipeline:
     def process_item(self, item: Dict, spider: Spider) -> Deferred:
         d = self._send(item, spider)
         return d
-    
+
     def _send(self, item: Dict, spider: Spider) -> Deferred:
         _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
         feed_message = self.feed_pb2.FeedMessage(
@@ -431,7 +432,7 @@ class WSPipeline:
     async def process_item(self, item: Dict, spider: Spider) -> Dict:
         await self._send(item, spider)
         return item
-    
+
     async def _send(self, item: Dict, spider: Spider) -> None:
         _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
         try:
@@ -473,7 +474,7 @@ class HttpPipeline:
     async def process_item(self, item: Dict, spider: Spider) -> Dict:
         await self._send(item, spider)
         return item
-    
+
     async def _send(self, item: Dict, spider: Spider) -> None:
         try:
             _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
