@@ -7,7 +7,7 @@ from scrapy.crawler import Crawler
 from scrapy.settings import Settings
 from scrapy.spiders import Spider
 from scrapy.exceptions import DropItem, NotConfigured
-from datetime import datetime
+from datetime import datetime, timedelta
 from scrapy.utils.defer import maybe_deferred_to_future
 from scrapy.http.request import NO_CALLBACK
 import dateparser
@@ -84,13 +84,16 @@ class PreProcessingPipeline:
         self._cursor.execute("DELETE FROM Items WHERE timestamp < NOW() - (INTERVAL '1 day' * %s)", (days,))
         self._conn.commit()
 
-    def is_today(self, date_str: str, date_format: str, debug_info: str, spider: Spider) -> bool:
+    def is_recent(self, date_str: str, date_format: str, debug_info: str, spider: Spider) -> bool:
+        """
+        Check if the date is recent (within the last 2 days).
+        """
         try:
             if not date_str:
                 return True
-            today = datetime.now(ZoneInfo('America/New_York')).date()
+            utc_today = datetime.now(ZoneInfo('UTC')).date()
             input_date = dateparser.parse(date_string=date_str, date_formats=[date_format] if date_format is not None else None).date()
-            return input_date >= today
+            return input_date >= (utc_today - timedelta(days=2))
         except Exception as e:
             spider.logger.error(f"{str(e)}: {debug_info} ")
             return False
@@ -106,7 +109,7 @@ class PreProcessingPipeline:
         _dt = item.pop("_dt", None)
         _dt_format = item.pop("_dt_format", None)
         if _dt:
-            if not self.is_today(_dt, _dt_format, item.get("_id"), spider):
+            if not self.is_recent(_dt, _dt_format, item.get("_id"), spider):
                 raise DropItem(f"Outdated [{_dt}]")
 
         if not {k: v for k, v in item.items() if not k.startswith("_") and v}:
