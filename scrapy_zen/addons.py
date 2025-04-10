@@ -32,7 +32,7 @@ class SpidermonAddon:
             settings["ITEM_PIPELINES"]["spidermon.contrib.scrapy.pipelines.ItemValidationPipeline"] = 311 # after preprocessing pipeline
             if validation_schema == "NEWS":
                 settings['SPIDERMON_VALIDATION_SCHEMAS'] = [
-                    Path(resource_filename("scrapy_zen", "schemas")) / "news.json",
+                    str(Path(resource_filename("scrapy_zen", "schemas")) / "news.json"),
                 ]
             else:
                 settings['SPIDERMON_VALIDATION_SCHEMAS'] = [
