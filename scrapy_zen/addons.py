@@ -1,5 +1,8 @@
 from scrapy.settings import Settings
 import os
+from pkg_resources import resource_filename
+from pathlib import Path
+
 from .logformatter import ZenLogFormatter
 
 
@@ -29,7 +32,7 @@ class SpidermonAddon:
             settings["ITEM_PIPELINES"]["spidermon.contrib.scrapy.pipelines.ItemValidationPipeline"] = 311 # after preprocessing pipeline
             if validation_schema == "NEWS":
                 settings['SPIDERMON_VALIDATION_SCHEMAS'] = [
-                    "scrapy_zen/schemas/news.json",
+                    Path(resource_filename("scrapy_zen", "schemas")) / "news.json",
                 ]
             else:
                 settings['SPIDERMON_VALIDATION_SCHEMAS'] = [
@@ -43,7 +46,7 @@ class SpidermonAddon:
         settings.set('SPIDERMON_TELEGRAM_NOTIFIER_INCLUDE_ERROR_MESSAGES', True, "addon")
         # discord
         settings.set("SPIDERMON_DISCORD_WEBHOOK_URL", os.getenv("SPIDERMON_DISCORD_WEBHOOK_URL"), "addon")
-        
+
 
 
 class ZenAddon:
