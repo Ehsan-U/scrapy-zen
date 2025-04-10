@@ -31,9 +31,13 @@ class SpidermonAddon:
         if validation_schema:
             settings["ITEM_PIPELINES"]["spidermon.contrib.scrapy.pipelines.ItemValidationPipeline"] = 311 # after preprocessing pipeline
             if validation_schema == "NEWS":
-                settings.set('SPIDERMON_VALIDATION_SCHEMAS', str(Path(resource_filename("scrapy_zen", "schemas")) / "news.json"), "addon")
+                settings.set(
+                    'SPIDERMON_VALIDATION_SCHEMAS',
+                    [str(Path(resource_filename("scrapy_zen", "schemas")) / "news.json")],
+                    "addon"
+                )
             else:
-                settings.set('SPIDERMON_VALIDATION_SCHEMAS', validation_schema, "addon")
+                settings.set('SPIDERMON_VALIDATION_SCHEMAS', [validation_schema], "addon")
             settings.set('SPIDERMON_VALIDATION_ADD_ERRORS_TO_ITEMS', True, "addon")
             settings.set('SPIDERMON_VALIDATION_DROP_ITEMS_WITH_ERRORS', True, "addon") # it will be ERROR level log
         # telegram (disabled)
