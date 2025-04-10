@@ -39,8 +39,11 @@ class ZenLogFormatter(logformatter.LogFormatter):
 
     def dropped(self, item: Dict, exception: DropItem, response: Response, spider: Spider) -> LogFormatterResult:
         if "dropped" in self.truncate_events:
+            level = logging.WARNING
+            if "_validation" in item:
+                level = logging.ERROR
             return {
-                'level': logging.WARNING,
+                'level': level,
                 'msg': self.YELLOW + "Dropped: %(exception)s" + self.RESET + os.linesep + "%(item)s",
                 'args': {
                     'exception': exception,

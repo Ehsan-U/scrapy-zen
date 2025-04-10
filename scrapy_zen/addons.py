@@ -23,12 +23,27 @@ class SpidermonAddon:
             429: 0,
             400: 0,
         }, "addon")
+        # item validation
+        validation_schema = settings.get("SPIDERMON_ITEM_VALIDATION_SCHEMA")
+        if validation_schema:
+            settings["ITEM_PIPELINES"]["spidermon.contrib.scrapy.pipelines.ItemValidationPipeline"] = 311 # after preprocessing pipeline
+            if validation_schema == "NEWS":
+                settings['SPIDERMON_VALIDATION_SCHEMAS'] = [
+                    "scrapy_zen/schemas/news.json",
+                ]
+            else:
+                settings['SPIDERMON_VALIDATION_SCHEMAS'] = [
+                    validation_schema, # path to json-schema file
+                ]
+            settings['SPIDERMON_VALIDATION_ADD_ERRORS_TO_ITEMS'] = True
+            settings['SPIDERMON_VALIDATION_DROP_ITEMS_WITH_ERRORS'] = True # it will be ERROR level log
         # telegram (disabled)
         settings.set("SPIDERMON_TELEGRAM_SENDER_TOKEN", os.getenv("SPIDERMON_TELEGRAM_SENDER_TOKEN"), "addon")
         settings.set("SPIDERMON_TELEGRAM_RECIPIENTS", ["-1002462968579"], "addon")
         settings.set('SPIDERMON_TELEGRAM_NOTIFIER_INCLUDE_ERROR_MESSAGES', True, "addon")
         # discord
         settings.set("SPIDERMON_DISCORD_WEBHOOK_URL", os.getenv("SPIDERMON_DISCORD_WEBHOOK_URL"), "addon")
+        
 
 
 class ZenAddon:
