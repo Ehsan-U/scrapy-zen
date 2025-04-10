@@ -112,8 +112,6 @@ class PreProcessingPipeline:
             if not self.is_recent(_dt, _dt_format, item.get("_id"), spider):
                 raise DropItem(f"Outdated [{_dt}]")
 
-        if not {k: v for k, v in item.items() if not k.startswith("_") and v}:
-            raise DropItem("Item keys have None values!")
         return item
 
 
