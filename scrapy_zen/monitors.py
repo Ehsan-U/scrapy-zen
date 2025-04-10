@@ -5,6 +5,8 @@ from spidermon import MonitorSuite, monitors
 from scrapy.settings import Settings
 from spidermon.contrib.actions.telegram.notifiers import SendTelegramMessageSpiderFinished
 from spidermon.contrib.actions.discord.notifiers import SendDiscordMessageSpiderFinished
+from spidermon.contrib.monitors.mixins import StatsMonitorMixin
+from spidermon import Monitor
 from spidermon.contrib.scrapy.monitors.monitors import CriticalCountMonitor, BaseScrapyMonitor,ErrorCountMonitor,UnwantedHTTPCodesMonitor
 import logparser
 
@@ -104,6 +106,20 @@ class CustomSendTelegramMessageSpiderFinished(SendTelegramMessageSpiderFinished)
         }
     
 
+@monitors.name('Item validation')
+class ItemValidationMonitor(Monitor, StatsMonitorMixin):
+
+    @monitors.name('No item validation errors')
+    def test_no_item_validation_errors(self):
+        validation_errors = getattr(
+            self.stats, 'spidermon/validation/fields/errors', 0
+        )
+        self.assertEqual(
+            validation_errors,
+            0,
+            msg='Found validation errors in {} fields'.format(
+                validation_errors)
+        )
 
 
 class SpiderCloseMonitorSuite(MonitorSuite):
@@ -112,6 +128,7 @@ class SpiderCloseMonitorSuite(MonitorSuite):
         CustomDownloaderExceptionMonitor,
         ErrorCountMonitor,
         UnwantedHTTPCodesMonitor,
+        ItemValidationMonitor,
     ]
 
     monitors_failed_actions = [
