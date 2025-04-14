@@ -105,7 +105,7 @@ class PreProcessingPipeline:
         if _id:
             if self.db_exists(id=_id):
                 raise DropItem(f"Already exists [{_id}]")
-            # self.db_insert(id=_id, spider_name=spider.name)
+            self.db_insert(id=_id, spider_name=spider.name)
         _dt = item.pop("_dt", None)
         _dt_format = item.pop("_dt_format", None)
         if _dt:
@@ -160,9 +160,9 @@ class PostProcessingPipeline:
         self._conn.commit()
 
     def process_item(self, item: Dict, spider: Spider) -> Dict:
-        _id = item.get("_id")
-        if _id:
-            self.db_insert(id=_id, spider_name=spider.name)
+        # _id = item.get("_id")
+        # if _id:
+        #     self.db_insert(id=_id, spider_name=spider.name)
         return item
 
 
