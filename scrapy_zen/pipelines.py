@@ -155,14 +155,15 @@ class PostProcessingPipeline:
             self._conn.commit()
             self._conn.close()
 
-    def db_insert(self, id: str, spider_name: str) -> None:
-        self._cursor.execute("INSERT INTO Items (id,spider) VALUES (%s,%s)", (id,spider_name))
+    def db_remove(self, id: str, spider_name: str) -> None:
+        self._cursor.execute("DELETE FROM Items WHERE id=%s AND spider=%s", (id,spider_name))
         self._conn.commit()
 
     def process_item(self, item: Dict, spider: Spider) -> Dict:
-        # _id = item.get("_id")
-        # if _id:
-        #     self.db_insert(id=_id, spider_name=spider.name)
+        if not item.pop("_delivered", None):
+            _id = item.get("_id", None)
+            if _id:
+                self.db_remove(id=_id, spider_name=spider.name)
         return item
 
 
@@ -214,9 +215,9 @@ class DiscordPipeline:
                     ),
                 )
             )
+            item['_delivered'] = True
         except Exception as e:
             spider.logger.error(f"Failed to send to Discord: {item['_id']}\n{str(e)}")
-            raise DropItem()
 
 
 
@@ -267,9 +268,9 @@ class SynopticPipeline:
                     )
                 )
             )
+            item['_delivered'] = True
         except Exception as e:
             spider.logger.error(f"Failed to send to Synoptic: {item['_id']}\n{str(e)}")
-            raise DropItem()
 
 
 
@@ -321,9 +322,9 @@ class TelegramPipeline:
                     )
                 )
             )
+            item['_delivered'] = True
         except Exception as e:
             spider.logger.error(f"Failed to send to Telegram: {item['_id']}\n{str(e)}")
-            raise DropItem()
 
 
 
@@ -375,11 +376,12 @@ class GRPCPipeline:
             message=json.dumps(_item)
         )
         def _on_success(result) -> Dict:
+            item['_delivered'] = True
             spider.logger.debug(f"Sent to gRPC server: {item['_id']}")
             return item
         def _on_failure(failure) -> None:
             spider.logger.error(f"Failed to send to gRPC server: {item['_id']}\n{failure.value}")
-            raise DropItem()
+            return item
         d = deferToThread(self._submit, feed_message)
         d.addCallback(_on_success)
         d.addErrback(_on_failure)
@@ -438,11 +440,11 @@ class WSPipeline:
         _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
         try:
             await self.client.send(json.dumps(_item))
+            item['_delivered'] = True
             spider.logger.debug(f"Sent to WS server: {item["_id"]}")
         except Exception as e:
             spider.logger.error(f"Failed to send to WS server: {item['_id']}\n{str(e)}")
             self.client = await websockets.connect(self.uri)
-            raise DropItem()
 
 
 class HttpPipeline:
@@ -491,6 +493,6 @@ class HttpPipeline:
                     )
                 )
             )
+            item['_delivered'] = True
         except Exception as e:
             spider.logger.error(f"Failed to send to HttpWebhook: {item['_id']}\n{str(e)}")
-            raise DropItem()
