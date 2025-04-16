@@ -32,7 +32,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
     """
 
     def __init__(
-            self, 
+            self,
             settings: Settings,
             validation_enabled: bool,
             validators=None,
@@ -61,7 +61,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
                 settings=crawler.settings,
                 validation_enabled=False,
             )
-        
+
         validators = defaultdict(list)
         def set_validators(loader, schema):
             if type(schema) in (list, tuple):
@@ -71,14 +71,12 @@ class PreProcessingPipeline(ItemValidationPipeline):
                 paths = paths if type(paths) in (list, tuple) else [paths]
                 objects = [loader(v) for v in paths]
                 validators[key].extend(objects)
-        for loader, name in [
-            (cls._load_jsonschema_validator, "SPIDERMON_VALIDATION_SCHEMAS"),
-        ]:
-            res = crawler.settings.get(name)
-            if not res:
-                continue
-            set_validators(loader, res)
-
+        schema = crawler.settings.get("SPIDERMON_VALIDATION_SCHEMAS")
+        if schema:
+            set_validators(cls._load_jsonschema_validator, schema)
+        else:
+            crawler.spider.logger.warning("No schema defined. Validation disabled")
+            
         return cls(
             settings=crawler.settings,
             validation_enabled=True if validators else False,
