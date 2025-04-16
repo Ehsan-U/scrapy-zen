@@ -1,3 +1,4 @@
+from collections import defaultdict
 import importlib
 import json
 from typing import Dict, List, Self
@@ -13,14 +14,14 @@ from scrapy.http.request import NO_CALLBACK
 import dateparser
 from twisted.internet.threads import deferToThread
 from twisted.internet.defer import Deferred
-from scrapy import signals
+from scrapy import Item, signals
 import websockets
 import psycopg
 from zoneinfo import ZoneInfo
 import logging
 logging.getLogger("websockets").setLevel(logging.WARNING)
 
-from spidermon.contrib.scrapy.pipelines import ItemValidationPipeline, PassThroughPipeline
+from spidermon.contrib.scrapy.pipelines import ItemValidationPipeline
 
 
 
@@ -30,10 +31,23 @@ class PreProcessingPipeline(ItemValidationPipeline):
     Handles item validation, deduplication, filtering, and cleaning.
     """
 
-    def __init__(self, settings: Settings, validation_enabled: bool, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.validation_enabled = validation_enabled
+    def __init__(
+            self, 
+            settings: Settings,
+            validation_enabled: bool,
+            validators=None,
+            stats=None,
+        ) -> None:
+        if validation_enabled:
+            super().__init__(
+                validators=validators,
+                stats=stats,
+                drop_items_with_errors=settings.getbool("SPIDERMON_VALIDATION_DROP_ITEMS_WITH_ERRORS", False),
+                add_errors_to_items=settings.getbool("SPIDERMON_VALIDATION_ADD_ERRORS_TO_ITEMS", False),
+                errors_field=settings.get("SPIDERMON_VALIDATION_ERRORS_FIELD", "_validation"),
+            )
         self.settings = settings
+        self.validation_enabled = validation_enabled
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
@@ -41,29 +55,38 @@ class PreProcessingPipeline(ItemValidationPipeline):
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
-        try:
-            parent = super().from_crawler(crawler)
-        except NotConfigured as e: # when no schema is set
-            validation_enabled = False
-            parent_params = {}
-        else:
-            validation_enabled = True
-            parent_params = {
-                'validators': getattr(parent, 'validators'),
-                'stats': getattr(parent, 'stats'),
-                'drop_items_with_errors': getattr(parent, 'drop_items_with_errors'),
-                'add_errors_to_items': getattr(parent, 'add_errors_to_items'), 
-                'errors_field': getattr(parent, 'errors_field')
-            }
+        spidermon_enabled = crawler.settings.getbool("SPIDERMON_ENABLED")
+        if not spidermon_enabled:
+            return cls(
+                settings=crawler.settings,
+                validation_enabled=False,
+            )
+        
+        validators = defaultdict(list)
+        def set_validators(loader, schema):
+            if type(schema) in (list, tuple):
+                schema = {Item: schema}
+            for obj, paths in schema.items():
+                key = obj.__name__
+                paths = paths if type(paths) in (list, tuple) else [paths]
+                objects = [loader(v) for v in paths]
+                validators[key].extend(objects)
+        for loader, name in [
+            (cls._load_jsonschema_validator, "SPIDERMON_VALIDATION_SCHEMAS"),
+        ]:
+            res = crawler.settings.get(name)
+            if not res:
+                continue
+            set_validators(loader, res)
+
         return cls(
             settings=crawler.settings,
-            validation_enabled=validation_enabled,
-            **parent_params
+            validation_enabled=True if validators else False,
+            validators=validators,
+            stats=crawler.stats,
         )
 
     def open_spider(self, spider: Spider) -> None:
-        if not self.validation_enabled:
-            spider.logger.warning("Validation disabled")
         try:
             self._conn = psycopg.Connection.connect(f"""
                 dbname={self.settings.get("DB_NAME")}
