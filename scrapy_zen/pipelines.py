@@ -30,9 +30,10 @@ class PreProcessingPipeline(ItemValidationPipeline):
     Handles item validation, deduplication, filtering, and cleaning.
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, settings: Settings, validation_enabled: bool, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.settings = kwargs.get("settings")
+        self.validation_enabled = validation_enabled
+        self.settings = settings
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
@@ -41,13 +42,28 @@ class PreProcessingPipeline(ItemValidationPipeline):
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
         try:
-            p = super().from_crawler(crawler)
+            parent = super().from_crawler(crawler)
         except NotConfigured as e: # when no schema is set
-            p = PassThroughPipeline()
-        p.settings = crawler.settings
-        return p
+            validation_enabled = False
+            parent_params = {}
+        else:
+            validation_enabled = True
+            parent_params = {
+                'validators': getattr(parent, 'validators'),
+                'stats': getattr(parent, 'stats'),
+                'drop_items_with_errors': getattr(parent, 'drop_items_with_errors'),
+                'add_errors_to_items': getattr(parent, 'add_errors_to_items'), 
+                'errors_field': getattr(parent, 'errors_field')
+            }
+        return cls(
+            settings=crawler.settings,
+            validation_enabled=validation_enabled,
+            **parent_params
+        )
 
     def open_spider(self, spider: Spider) -> None:
+        if not self.validation_enabled:
+            spider.logger.warning("Validation disabled")
         try:
             self._conn = psycopg.Connection.connect(f"""
                 dbname={self.settings.get("DB_NAME")}
@@ -104,10 +120,11 @@ class PreProcessingPipeline(ItemValidationPipeline):
 
     def process_item(self, item: Dict, spider: Spider) -> Dict:
         item = {k:"\n".join([" ".join(line.split()) for line in v.strip().splitlines()]) if isinstance(v, str) else v for k,v in item.items()}
-        try:
-            item = super().process_item(item, spider)
-        except DropItem as e:
-            raise e
+        if self.validation_enabled:
+            try:
+                item = super().process_item(item, spider)
+            except DropItem as e:
+                raise e
 
         _id = item.get("_id", None)
         if _id:
