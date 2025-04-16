@@ -20,7 +20,7 @@ from zoneinfo import ZoneInfo
 import logging
 logging.getLogger("websockets").setLevel(logging.WARNING)
 
-from spidermon.contrib.scrapy.pipelines import ItemValidationPipeline
+from spidermon.contrib.scrapy.pipelines import ItemValidationPipeline, PassThroughPipeline
 
 
 
@@ -40,7 +40,10 @@ class PreProcessingPipeline(ItemValidationPipeline):
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
-        p = super().from_crawler(crawler)
+        try:
+            p = super().from_crawler(crawler)
+        except NotConfigured as e: # when no schema is set
+            p = PassThroughPipeline()
         p.settings = crawler.settings
         return p
 
