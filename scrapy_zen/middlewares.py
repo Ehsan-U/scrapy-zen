@@ -52,14 +52,14 @@ class PreProcessingMiddleware:
         if hasattr(self, "_conn"):
             self._conn.close()
     
-    def db_exists(self, id: str) -> bool:
-        record = self._cursor.execute("SELECT id FROM Items WHERE id = %s", (id,)).fetchone()
+    def db_exists(self, id: str, spider_name: str) -> bool:
+        record = self._cursor.execute("SELECT id FROM Items WHERE id=%s AND spider=%s", (id,spider_name)).fetchone()
         return bool(record)
 
     def process_request(self, request, spider: Spider) -> None:
         _id = request.meta.pop("_id", None)
         if _id:
-            if self.db_exists(id=_id):
+            if self.db_exists(_id, spider.name):
                 raise IgnoreRequest
         _dt = request.meta.pop("_dt", None)
         _dt_format = request.meta.pop("_dt_format", None)

@@ -20,18 +20,19 @@ from zoneinfo import ZoneInfo
 import logging
 logging.getLogger("websockets").setLevel(logging.WARNING)
 
+from spidermon.contrib.scrapy.pipelines import ItemValidationPipeline
 
-class PreProcessingPipeline:
+
+
+class PreProcessingPipeline(ItemValidationPipeline):
     """
     Pipeline to preprocess items before forwarding.
-    Handles deduplication, date filtering, and data cleaning.
-
-    Attributes:
-        settings (Settings): crawler settings object
+    Handles item validation, deduplication, filtering, and cleaning.
     """
 
-    def __init__(self, settings: Settings) -> None:
-        self.settings = settings
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.settings = kwargs.get("settings")
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
@@ -39,9 +40,9 @@ class PreProcessingPipeline:
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
-        return cls(
-            settings=crawler.settings
-        )
+        p = super().from_crawler(crawler)
+        p.settings = crawler.settings
+        return p
 
     def open_spider(self, spider: Spider) -> None:
         try:
@@ -76,8 +77,8 @@ class PreProcessingPipeline:
         self._cursor.execute("INSERT INTO Items (id,spider) VALUES (%s,%s)", (id,spider_name))
         self._conn.commit()
 
-    def db_exists(self, id: str) -> bool:
-        record = self._cursor.execute("SELECT id FROM Items WHERE id = %s", (id,)).fetchone()
+    def db_exists(self, id: str, spider_name: str) -> bool:
+        record = self._cursor.execute("SELECT id FROM Items WHERE id=%s AND spider=%s", (id,spider_name)).fetchone()
         return bool(record)
 
     def _cleanup_old_records(self, days: int) -> None:
@@ -100,12 +101,16 @@ class PreProcessingPipeline:
 
     def process_item(self, item: Dict, spider: Spider) -> Dict:
         item = {k:"\n".join([" ".join(line.split()) for line in v.strip().splitlines()]) if isinstance(v, str) else v for k,v in item.items()}
+        try:
+            item = super().process_item(item, spider)
+        except DropItem as e:
+            raise e
 
         _id = item.get("_id", None)
         if _id:
-            if self.db_exists(id=_id):
+            if self.db_exists(_id, spider.name):
                 raise DropItem(f"Already exists [{_id}]")
-            self.db_insert(id=_id, spider_name=spider.name)
+            self.db_insert(_id, spider.name)
         _dt = item.pop("_dt", None)
         _dt_format = item.pop("_dt_format", None)
         if _dt:
@@ -113,6 +118,7 @@ class PreProcessingPipeline:
                 raise DropItem(f"Outdated [{_dt}]")
 
         return item
+
 
 
 class PostProcessingPipeline:
@@ -163,7 +169,7 @@ class PostProcessingPipeline:
         if not item.pop("_delivered", None):
             _id = item.get("_id", None)
             if _id:
-                self.db_remove(id=_id, spider_name=spider.name)
+                self.db_remove(_id, spider.name)
         return item
 
 
