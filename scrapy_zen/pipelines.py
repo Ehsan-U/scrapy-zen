@@ -22,6 +22,7 @@ import logging
 logging.getLogger("websockets").setLevel(logging.WARNING)
 
 from spidermon.contrib.scrapy.pipelines import ItemValidationPipeline
+from scrapy_zen import normalize_url
 
 
 
@@ -149,6 +150,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
 
         _id = item.get("_id", None)
         if _id:
+            _id = normalize_url(_id)
             if self.db_exists(_id, spider.name):
                 raise DropItem(f"Already exists [{_id}]")
             self.db_insert(_id, spider.name)
@@ -159,6 +161,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
                 raise DropItem(f"Outdated [{_dt}]")
 
         return item
+
 
 
 
@@ -210,6 +213,7 @@ class PostProcessingPipeline:
         if not item.pop("_delivered", None):
             _id = item.get("_id", None)
             if _id:
+                _id = normalize_url(_id)
                 self.db_remove(_id, spider.name)
         return item
 

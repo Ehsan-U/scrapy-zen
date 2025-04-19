@@ -8,6 +8,8 @@ from typing import Self
 from scrapy.settings import Settings
 import psycopg
 
+from scrapy_zen import normalize_url
+
 
 
 class PreProcessingMiddleware:
@@ -59,6 +61,7 @@ class PreProcessingMiddleware:
     def process_request(self, request, spider: Spider) -> None:
         _id = request.meta.pop("_id", None)
         if _id:
+            _id = normalize_url(_id)
             if self.db_exists(_id, spider.name):
                 raise IgnoreRequest
         _dt = request.meta.pop("_dt", None)
