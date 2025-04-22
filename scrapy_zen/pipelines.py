@@ -142,7 +142,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
 
     def process_item(self, item: Dict, spider: Spider) -> Dict:
         item = {k:"\n".join([" ".join(line.split()) for line in v.strip().splitlines()]) if isinstance(v, str) else v for k,v in item.items()}
-        if self.validation_enabled:
+        if self.validation_enabled and "_skip_validation" not in item:
             try:
                 item = super().process_item(item, spider)
             except DropItem as e:
