@@ -77,7 +77,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
             set_validators(cls._load_jsonschema_validator, schema)
         else:
             crawler.spider.logger.warning("No schema defined. Validation disabled")
-            
+
         return cls(
             settings=crawler.settings,
             validation_enabled=True if validators else False,
@@ -160,6 +160,8 @@ class PreProcessingPipeline(ItemValidationPipeline):
             if not self.is_recent(_dt, _dt_format, item.get("_id"), spider):
                 raise DropItem(f"Outdated [{_dt}]")
 
+        if not {k:v for k,v in item.items() if not k.startswith("_")}:
+            raise DropItem("item has no data fields")
         return item
 
 
