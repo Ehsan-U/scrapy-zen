@@ -162,6 +162,10 @@ class PreProcessingPipeline(ItemValidationPipeline):
 
         if not {k:v for k,v in item.items() if not k.startswith("_")}:
             raise DropItem("item has no data fields")
+        
+        # replace 'not scraped yet' & 'n/a' with empty or null in body (just to comply with gRPC feed)
+        if item.get('body') in ["not scraped yet", "n/a"]:
+            item['body'] = None
         return item
 
 

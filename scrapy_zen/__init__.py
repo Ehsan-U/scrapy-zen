@@ -1,4 +1,4 @@
-__version__ = "0.0.90"
+__version__ = "0.0.91"
 
 from w3lib.url import canonicalize_url
 
