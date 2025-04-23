@@ -398,10 +398,11 @@ class GRPCPipeline:
     """
     exclude_fields: List[str] = []
 
-    def __init__(self, uri: str, token: str, id: str, proto_module: str) -> None:
+    def __init__(self, uri: str, token: str, id: str, id_headline: str,  proto_module: str) -> None:
         self.uri = uri
         self.token = token
         self.id = id
+        self.id_headline = id_headline
         self.feed_pb2 = importlib.import_module(f"{proto_module}.feed_pb2")
         self.feed_pb2_grpc = importlib.import_module(f"{proto_module}.feed_pb2_grpc")
         # gRPC channel is thread-safe
@@ -417,6 +418,7 @@ class GRPCPipeline:
             uri=crawler.settings.get("GRPC_SERVER_URI"),
             token=crawler.settings.get("GRPC_TOKEN"),
             id=crawler.settings.get("GRPC_ID"),
+            id_headline=crawler.settings.get("GRPC_ID_HEADLINE"),
             proto_module=crawler.settings.get("GRPC_PROTO_MODULE")
         )
 
@@ -426,9 +428,12 @@ class GRPCPipeline:
 
     def _send(self, item: Dict, spider: Spider) -> Deferred:
         _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
+        feed_id = self.id
+        if ("body" in _item) and (_item['body'] is None) and self.id_headline:
+            feed_id = self.id_headline
         feed_message = self.feed_pb2.FeedMessage(
             token=self.token,
-            feedId=self.id,
+            feedId=feed_id,
             messageId=item['_id'],
             message=json.dumps(_item)
         )
