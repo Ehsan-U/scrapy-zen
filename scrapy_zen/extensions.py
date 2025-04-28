@@ -43,6 +43,6 @@ class ZenExtension:
         if self.response_count > 0:
             avg_response_latency = self.total_latency / self.response_count
             self.stats.set_value("zen/avg_latency_seconds", f"{avg_response_latency:.2f}")
-            self.stats.set_value("zen/min_latency_seconds", f"{self.min_latency}")
-            self.stats.set_value("zen/max_latency_seconds", f"{self.max_latency}")
+            self.stats.set_value("zen/min_latency_seconds", f"{self.min_latency:.2f}")
+            self.stats.set_value("zen/max_latency_seconds", f"{self.max_latency:.2f}")
             self.stats.set_value("zen/response_count", self.response_count) 
