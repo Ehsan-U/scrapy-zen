@@ -496,7 +496,7 @@ class GRPCPipeline:
 
         def _on_success(result) -> Dict:
             item["_delivered"] = True
-            spider.logger.debug(f"Sent to gRPC server: {item['_id']}")
+            spider.logger.debug(f"Sent to gRPC server [{feed_id}]: {item['_id']}")
             return item
 
         def _on_failure(failure) -> None:
