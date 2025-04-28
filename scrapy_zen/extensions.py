@@ -1,7 +1,7 @@
 from scrapy.crawler import Crawler
 from scrapy.statscollectors import StatsCollector
 from typing import Self
-from scrapy import Spider
+from scrapy import Spider, signals
 from scrapy.http import Request, Response
 
 
@@ -21,6 +21,8 @@ class ZenExtension:
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
         ext = cls(crawler.stats)
+        crawler.signals.connect(ext.response_received, signal=signals.response_received)
+        crawler.signals.connect(ext.spider_closed, signal=signals.spider_closed)
         return ext
     
     def response_received(self, response: Response, request: Request, spider: Spider) -> None:
