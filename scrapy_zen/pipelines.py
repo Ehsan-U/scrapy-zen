@@ -162,8 +162,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
 
     def _drop_item(self, item, errors):
         self.stats.add_dropped_item()
-        self._add_errors_to_item(item, errors)
-        raise DropItem("Validation failed!")
+        raise DropItem(f"Validation failed! {errors}")
 
     def process_item(self, item: Dict, spider: Spider) -> Dict:
         item = {
