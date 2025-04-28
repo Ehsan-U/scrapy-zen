@@ -182,9 +182,6 @@ class ZenAddon:
             )
 
         # extensions
-        settings['EXTENSIONS'].update({
-            "scrapy.extensions.closespider.CloseSpider": 900,
-        })
         if "scrapy_zen.extensions.ZenExtension" not in settings['EXTENSIONS']:
             settings['EXTENSIONS'].update({
                 "scrapy_zen.extensions.ZenExtension": 1000,
