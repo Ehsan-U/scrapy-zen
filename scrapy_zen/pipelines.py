@@ -19,11 +19,11 @@ import websockets
 import psycopg
 from zoneinfo import ZoneInfo
 import logging
+
 logging.getLogger("websockets").setLevel(logging.WARNING)
 
 from spidermon.contrib.scrapy.pipelines import ItemValidationPipeline
 from scrapy_zen import normalize_url
-
 
 
 class PreProcessingPipeline(ItemValidationPipeline):
@@ -33,26 +33,32 @@ class PreProcessingPipeline(ItemValidationPipeline):
     """
 
     def __init__(
-            self,
-            settings: Settings,
-            validation_enabled: bool,
-            validators=None,
-            stats=None,
-        ) -> None:
+        self,
+        settings: Settings,
+        validation_enabled: bool,
+        validators=None,
+        stats=None,
+    ) -> None:
         if validation_enabled:
             super().__init__(
                 validators=validators,
                 stats=stats,
-                drop_items_with_errors=settings.getbool("SPIDERMON_VALIDATION_DROP_ITEMS_WITH_ERRORS", False),
-                add_errors_to_items=settings.getbool("SPIDERMON_VALIDATION_ADD_ERRORS_TO_ITEMS", False),
-                errors_field=settings.get("SPIDERMON_VALIDATION_ERRORS_FIELD", "_validation"),
+                drop_items_with_errors=settings.getbool(
+                    "SPIDERMON_VALIDATION_DROP_ITEMS_WITH_ERRORS", False
+                ),
+                add_errors_to_items=settings.getbool(
+                    "SPIDERMON_VALIDATION_ADD_ERRORS_TO_ITEMS", False
+                ),
+                errors_field=settings.get(
+                    "SPIDERMON_VALIDATION_ERRORS_FIELD", "_validation"
+                ),
             )
         self.settings = settings
         self.validation_enabled = validation_enabled
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
-        settings = ["DB_NAME","DB_HOST","DB_PORT","DB_USER","DB_PASS"]
+        settings = ["DB_NAME", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASS"]
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
@@ -64,6 +70,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
             )
 
         validators = defaultdict(list)
+
         def set_validators(loader, schema):
             if type(schema) in (list, tuple):
                 schema = {Item: schema}
@@ -72,6 +79,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
                 paths = paths if type(paths) in (list, tuple) else [paths]
                 objects = [loader(v) for v in paths]
                 validators[key].extend(objects)
+
         schema = crawler.settings.get("SPIDERMON_VALIDATION_SCHEMAS")
         if schema:
             set_validators(cls._load_jsonschema_validator, schema)
@@ -115,33 +123,55 @@ class PreProcessingPipeline(ItemValidationPipeline):
             self._conn.close()
 
     def db_insert(self, id: str, spider_name: str) -> None:
-        self._cursor.execute("INSERT INTO Items (id,spider) VALUES (%s,%s)", (id,spider_name))
+        self._cursor.execute(
+            "INSERT INTO Items (id,spider) VALUES (%s,%s)", (id, spider_name)
+        )
         self._conn.commit()
 
     def db_exists(self, id: str, spider_name: str) -> bool:
-        record = self._cursor.execute("SELECT id FROM Items WHERE id=%s AND spider=%s", (id,spider_name)).fetchone()
+        record = self._cursor.execute(
+            "SELECT id FROM Items WHERE id=%s AND spider=%s", (id, spider_name)
+        ).fetchone()
         return bool(record)
 
     def _cleanup_old_records(self, days: int) -> None:
-        self._cursor.execute("DELETE FROM Items WHERE timestamp < NOW() - (INTERVAL '1 day' * %s)", (days,))
+        self._cursor.execute(
+            "DELETE FROM Items WHERE timestamp < NOW() - (INTERVAL '1 day' * %s)",
+            (days,),
+        )
         self._conn.commit()
 
-    def is_recent(self, date_str: str, date_format: str, debug_info: str, spider: Spider) -> bool:
+    def is_recent(
+        self, date_str: str, date_format: str, debug_info: str, spider: Spider
+    ) -> bool:
         """
         Check if the date is recent (within the last 2 days).
         """
         try:
             if not date_str:
                 return True
-            utc_today = datetime.now(ZoneInfo('UTC')).date()
-            input_date = dateparser.parse(date_string=date_str, date_formats=[date_format] if date_format is not None else None).date()
+            utc_today = datetime.now(ZoneInfo("UTC")).date()
+            input_date = dateparser.parse(
+                date_string=date_str,
+                date_formats=[date_format] if date_format is not None else None,
+            ).date()
             return input_date >= (utc_today - timedelta(days=2))
         except Exception as e:
             spider.logger.error(f"{str(e)}: {debug_info} ")
             return False
 
+    def _drop_item(self, item, errors):
+        self.stats.add_dropped_item()
+        self._add_errors_to_item(item, errors)
+        raise DropItem("Validation failed!")
+
     def process_item(self, item: Dict, spider: Spider) -> Dict:
-        item = {k:"\n".join([" ".join(line.split()) for line in v.strip().splitlines()]) if isinstance(v, str) else v for k,v in item.items()}
+        item = {
+            k: "\n".join([" ".join(line.split()) for line in v.strip().splitlines()])
+            if isinstance(v, str)
+            else v
+            for k, v in item.items()
+        }
         if self.validation_enabled and "_skip_validation" not in item:
             try:
                 item = super().process_item(item, spider)
@@ -160,15 +190,13 @@ class PreProcessingPipeline(ItemValidationPipeline):
             if not self.is_recent(_dt, _dt_format, item.get("_id"), spider):
                 raise DropItem(f"Outdated [{_dt}]")
 
-        if not {k:v for k,v in item.items() if not k.startswith("_")}:
+        if not {k: v for k, v in item.items() if not k.startswith("_")}:
             raise DropItem("item has no data fields")
-        
+
         # replace 'not scraped yet' & 'n/a' with empty or null in body (just to comply with gRPC feed)
-        if item.get('body') in ["not scraped yet", "n/a"]:
-            item['body'] = None
+        if item.get("body") in ["not scraped yet", "n/a"]:
+            item["body"] = None
         return item
-
-
 
 
 class PostProcessingPipeline:
@@ -185,13 +213,11 @@ class PostProcessingPipeline:
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
-        settings = ["DB_NAME","DB_HOST","DB_PORT","DB_USER","DB_PASS"]
+        settings = ["DB_NAME", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASS"]
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
-        return cls(
-            settings=crawler.settings
-        )
+        return cls(settings=crawler.settings)
 
     def open_spider(self, spider: Spider) -> None:
         try:
@@ -212,7 +238,9 @@ class PostProcessingPipeline:
             self._conn.close()
 
     def db_remove(self, id: str, spider_name: str) -> None:
-        self._cursor.execute("DELETE FROM Items WHERE id=%s AND spider=%s", (id,spider_name))
+        self._cursor.execute(
+            "DELETE FROM Items WHERE id=%s AND spider=%s", (id, spider_name)
+        )
         self._conn.commit()
 
     def process_item(self, item: Dict, spider: Spider) -> Dict:
@@ -232,6 +260,7 @@ class DiscordPipeline:
         uri (str):
         exclude_fields (List[str]): List of fields that needs to be excluded for this pipeline
     """
+
     exclude_fields: List[str] = ["body"]
 
     def __init__(self, uri: str) -> None:
@@ -243,9 +272,7 @@ class DiscordPipeline:
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
-        return cls(
-            uri=crawler.settings.get("DISCORD_SERVER_URI")
-        )
+        return cls(uri=crawler.settings.get("DISCORD_SERVER_URI"))
 
     async def process_item(self, item: Dict, spider: Spider) -> Dict:
         await self._send(item, spider)
@@ -253,29 +280,36 @@ class DiscordPipeline:
 
     async def _send(self, item: Dict, spider: Spider) -> None:
         try:
-            _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
+            _item = {
+                k: v
+                for k, v in item.items()
+                if not k.startswith("_") and k.lower() not in self.exclude_fields
+            }
             await maybe_deferred_to_future(
                 spider.crawler.engine.download(
                     scrapy.Request(
                         url=self.uri,
                         method="POST",
-                        body=json.dumps({
-                            "embeds": [{
-                                "title": "Alert",
-                                "description": json.dumps(_item),
-                                "color": int("03b2f8", 16)
-                            }]
-                        }),
+                        body=json.dumps(
+                            {
+                                "embeds": [
+                                    {
+                                        "title": "Alert",
+                                        "description": json.dumps(_item),
+                                        "color": int("03b2f8", 16),
+                                    }
+                                ]
+                            }
+                        ),
                         headers={"Content-Type": "application/json"},
                         callback=NO_CALLBACK,
-                        errback=lambda f: spider.logger.error((f.value))
+                        errback=lambda f: spider.logger.error((f.value)),
                     ),
                 )
             )
-            item['_delivered'] = True
+            item["_delivered"] = True
         except Exception as e:
             spider.logger.error(f"Failed to send to Discord: {item['_id']}\n{str(e)}")
-
 
 
 class SynopticPipeline:
@@ -287,6 +321,7 @@ class SynopticPipeline:
         api_key (str):
         exclude_fields (List[str]): List of fields that needs to be excluded for this pipeline
     """
+
     exclude_fields: List[str] = []
 
     def __init__(self, uri: str, stream_id: str, api_key: str) -> None:
@@ -296,14 +331,14 @@ class SynopticPipeline:
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
-        settings = ["SYNOPTIC_SERVER_URI","SYNOPTIC_STREAM_ID","SYNOPTIC_API_KEY"]
+        settings = ["SYNOPTIC_SERVER_URI", "SYNOPTIC_STREAM_ID", "SYNOPTIC_API_KEY"]
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
         return cls(
             uri=crawler.settings.get("SYNOPTIC_SERVER_URI"),
             stream_id=crawler.settings.get("SYNOPTIC_STREAM_ID"),
-            api_key=crawler.settings.get("SYNOPTIC_API_KEY")
+            api_key=crawler.settings.get("SYNOPTIC_API_KEY"),
         )
 
     async def process_item(self, item: Dict, spider: Spider) -> Dict:
@@ -312,23 +347,29 @@ class SynopticPipeline:
 
     async def _send(self, item: Dict, spider: Spider) -> None:
         try:
-            _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
+            _item = {
+                k: v
+                for k, v in item.items()
+                if not k.startswith("_") and k.lower() not in self.exclude_fields
+            }
             await maybe_deferred_to_future(
                 spider.crawler.engine.download(
                     scrapy.Request(
                         url=self.uri,
                         body=json.dumps(_item),
                         method="POST",
-                        headers={"content-type": "application/json", 'x-api-key': self.api_key},
+                        headers={
+                            "content-type": "application/json",
+                            "x-api-key": self.api_key,
+                        },
                         callback=NO_CALLBACK,
-                        errback=lambda f: spider.logger.error((f.value))
+                        errback=lambda f: spider.logger.error((f.value)),
                     )
                 )
             )
-            item['_delivered'] = True
+            item["_delivered"] = True
         except Exception as e:
             spider.logger.error(f"Failed to send to Synoptic: {item['_id']}\n{str(e)}")
-
 
 
 class TelegramPipeline:
@@ -341,16 +382,17 @@ class TelegramPipeline:
         chat_id (str):
         exclude_fields (List[str]): List of fields that needs to be excluded for this pipeline
     """
+
     exclude_fields: List[str] = []
 
-    def __init__(self,  uri: str, token: str, chat_id: str) -> None:
+    def __init__(self, uri: str, token: str, chat_id: str) -> None:
         self.uri = uri
         self.token = token
         self.chat_id = chat_id
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
-        settings = ["TELEGRAM_SERVER_URI","TELEGRAM_TOKEN","TELEGRAM_CHAT_ID"]
+        settings = ["TELEGRAM_SERVER_URI", "TELEGRAM_TOKEN", "TELEGRAM_CHAT_ID"]
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
@@ -366,23 +408,29 @@ class TelegramPipeline:
 
     async def _send(self, item: Dict, spider: Spider) -> None:
         try:
-            _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
+            _item = {
+                k: v
+                for k, v in item.items()
+                if not k.startswith("_") and k.lower() not in self.exclude_fields
+            }
             await maybe_deferred_to_future(
                 spider.crawler.engine.download(
                     scrapy.Request(
                         url=self.uri,
                         body=json.dumps(_item),
                         method="POST",
-                        headers={"content-type": "application/json", 'authorization': self.token},
+                        headers={
+                            "content-type": "application/json",
+                            "authorization": self.token,
+                        },
                         callback=NO_CALLBACK,
-                        errback=lambda f: spider.logger.error((f.value))
+                        errback=lambda f: spider.logger.error((f.value)),
                     )
                 )
             )
-            item['_delivered'] = True
+            item["_delivered"] = True
         except Exception as e:
             spider.logger.error(f"Failed to send to Telegram: {item['_id']}\n{str(e)}")
-
 
 
 class GRPCPipeline:
@@ -396,9 +444,12 @@ class GRPCPipeline:
         proto_module (str): dotted path to gRPC contract module
         exclude_fields (List[str]): List of fields that needs to be excluded for this pipeline
     """
+
     exclude_fields: List[str] = []
 
-    def __init__(self, uri: str, token: str, id: str, id_headline: str,  proto_module: str) -> None:
+    def __init__(
+        self, uri: str, token: str, id: str, id_headline: str, proto_module: str
+    ) -> None:
         self.uri = uri
         self.token = token
         self.id = id
@@ -406,11 +457,13 @@ class GRPCPipeline:
         self.feed_pb2 = importlib.import_module(f"{proto_module}.feed_pb2")
         self.feed_pb2_grpc = importlib.import_module(f"{proto_module}.feed_pb2_grpc")
         # gRPC channel is thread-safe
-        self._channel_grpc = grpc.secure_channel(self.uri, grpc.ssl_channel_credentials())
+        self._channel_grpc = grpc.secure_channel(
+            self.uri, grpc.ssl_channel_credentials()
+        )
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
-        settings = ["GRPC_SERVER_URI","GRPC_TOKEN","GRPC_ID","GRPC_PROTO_MODULE"]
+        settings = ["GRPC_SERVER_URI", "GRPC_TOKEN", "GRPC_ID", "GRPC_PROTO_MODULE"]
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
@@ -419,7 +472,7 @@ class GRPCPipeline:
             token=crawler.settings.get("GRPC_TOKEN"),
             id=crawler.settings.get("GRPC_ID"),
             id_headline=crawler.settings.get("GRPC_ID_HEADLINE"),
-            proto_module=crawler.settings.get("GRPC_PROTO_MODULE")
+            proto_module=crawler.settings.get("GRPC_PROTO_MODULE"),
         )
 
     def process_item(self, item: Dict, spider: Spider) -> Deferred:
@@ -427,23 +480,32 @@ class GRPCPipeline:
         return d
 
     def _send(self, item: Dict, spider: Spider) -> Deferred:
-        _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
+        _item = {
+            k: v
+            for k, v in item.items()
+            if not k.startswith("_") and k.lower() not in self.exclude_fields
+        }
         feed_id = self.id
-        if ("body" in _item) and (_item['body'] is None) and self.id_headline:
+        if ("body" in _item) and (_item["body"] is None) and self.id_headline:
             feed_id = self.id_headline
         feed_message = self.feed_pb2.FeedMessage(
             token=self.token,
             feedId=feed_id,
-            messageId=item['_id'],
-            message=json.dumps(_item)
+            messageId=item["_id"],
+            message=json.dumps(_item),
         )
+
         def _on_success(result) -> Dict:
-            item['_delivered'] = True
+            item["_delivered"] = True
             spider.logger.debug(f"Sent to gRPC server: {item['_id']}")
             return item
+
         def _on_failure(failure) -> None:
-            spider.logger.error(f"Failed to send to gRPC server: {item['_id']}\n{failure.value}")
+            spider.logger.error(
+                f"Failed to send to gRPC server: {item['_id']}\n{failure.value}"
+            )
             return item
+
         d = deferToThread(self._submit, feed_message)
         d.addCallback(_on_success)
         d.addErrback(_on_failure)
@@ -461,7 +523,6 @@ class GRPCPipeline:
         self._channel_grpc.close()
 
 
-
 class WSPipeline:
     """
     Pipeline to send items to a websocket server.
@@ -470,6 +531,7 @@ class WSPipeline:
         uri (str):
         exclude_fields (List[str]): List of fields that needs to be excluded for this pipeline
     """
+
     exclude_fields: List[str] = []
 
     def __init__(self, uri: str) -> None:
@@ -481,9 +543,7 @@ class WSPipeline:
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
-        p = cls(
-            uri=crawler.settings.get("WS_SERVER_URI")
-        )
+        p = cls(uri=crawler.settings.get("WS_SERVER_URI"))
         crawler.signals.connect(p.spider_opened, signal=signals.spider_opened)
         crawler.signals.connect(p.spider_closed, signal=signals.spider_closed)
         return p
@@ -499,11 +559,15 @@ class WSPipeline:
         return item
 
     async def _send(self, item: Dict, spider: Spider) -> None:
-        _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
+        _item = {
+            k: v
+            for k, v in item.items()
+            if not k.startswith("_") and k.lower() not in self.exclude_fields
+        }
         try:
             await self.client.send(json.dumps(_item))
-            item['_delivered'] = True
-            spider.logger.debug(f"Sent to WS server: {item["_id"]}")
+            item["_delivered"] = True
+            spider.logger.debug(f"Sent to WS server: {item['_id']}")
         except Exception as e:
             spider.logger.error(f"Failed to send to WS server: {item['_id']}\n{str(e)}")
             self.client = await websockets.connect(self.uri)
@@ -518,6 +582,7 @@ class HttpPipeline:
         token (str):
         exclude_fields (List[str]): List of fields that needs to be excluded for this pipeline
     """
+
     exclude_fields: List[str] = []
 
     def __init__(self, uri: str, token: str) -> None:
@@ -526,13 +591,13 @@ class HttpPipeline:
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
-        settings = ["HTTP_SERVER_URI","HTTP_TOKEN"]
+        settings = ["HTTP_SERVER_URI", "HTTP_TOKEN"]
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
         p = cls(
             uri=crawler.settings.get("HTTP_SERVER_URI"),
-            token=crawler.settings.get("HTTP_TOKEN")
+            token=crawler.settings.get("HTTP_TOKEN"),
         )
         return p
 
@@ -542,19 +607,28 @@ class HttpPipeline:
 
     async def _send(self, item: Dict, spider: Spider) -> None:
         try:
-            _item = {k:v for k,v in item.items() if not k.startswith("_") and k.lower() not in self.exclude_fields}
+            _item = {
+                k: v
+                for k, v in item.items()
+                if not k.startswith("_") and k.lower() not in self.exclude_fields
+            }
             await maybe_deferred_to_future(
                 spider.crawler.engine.download(
                     scrapy.Request(
                         url=self.uri,
                         body=json.dumps(_item),
                         method="POST",
-                        headers={"content-type": "application/json","authorization":self.token},
+                        headers={
+                            "content-type": "application/json",
+                            "authorization": self.token,
+                        },
                         callback=NO_CALLBACK,
-                        errback=lambda f: spider.logger.error((f.value))
+                        errback=lambda f: spider.logger.error((f.value)),
                     )
                 )
             )
-            item['_delivered'] = True
+            item["_delivered"] = True
         except Exception as e:
-            spider.logger.error(f"Failed to send to HttpWebhook: {item['_id']}\n{str(e)}")
+            spider.logger.error(
+                f"Failed to send to HttpWebhook: {item['_id']}\n{str(e)}"
+            )
