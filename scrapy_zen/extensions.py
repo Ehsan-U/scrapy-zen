@@ -3,6 +3,7 @@ from scrapy.statscollectors import StatsCollector
 from typing import Self
 from scrapy import Spider, signals
 from scrapy.http import Request, Response
+from time import time
 
 
 
@@ -22,22 +23,25 @@ class ZenExtension:
     def from_crawler(cls, crawler: Crawler) -> Self:
         ext = cls(crawler.stats)
         crawler.signals.connect(ext.response_received, signal=signals.response_received)
+        crawler.signals.connect(ext.request_reached_downloader, signal=signals.request_reached_downloader)
         crawler.signals.connect(ext.spider_closed, signal=signals.spider_closed)
         return ext
     
+    def request_reached_downloader(self, request: Request, spider: Spider) -> None:
+        request.meta['zen_start_time'] = time()
+    
     def response_received(self, response: Response, request: Request, spider: Spider) -> None:
-        download_latency = response.meta.get("download_latency")
-        if download_latency is not None:
-            if self.min_latency is None:
-                self.min_latency = download_latency
+        download_latency = time() - request.meta.pop("zen_start_time")
+        if self.min_latency is None:
+            self.min_latency = download_latency
+            self.max_latency = download_latency
+        else:
+            if download_latency > self.max_latency:
                 self.max_latency = download_latency
-            else:
-                if download_latency > self.max_latency:
-                    self.max_latency = download_latency
-                if download_latency < self.min_latency:
-                    self.min_latency = download_latency
-            self.total_latency += download_latency
-            self.response_count += 1
+            if download_latency < self.min_latency:
+                self.min_latency = download_latency
+        self.total_latency += download_latency
+        self.response_count += 1
 
     def spider_closed(self, spider: Spider, reason: str) -> None:
         if self.response_count > 0:
