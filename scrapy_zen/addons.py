@@ -180,9 +180,3 @@ class ZenAddon:
                 "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
                 "addon",
             )
-
-        # extensions
-        if "scrapy_zen.extensions.ZenExtension" not in settings['EXTENSIONS']:
-            settings['EXTENSIONS'].update({
-                "scrapy_zen.extensions.ZenExtension": 1000,
-            })
