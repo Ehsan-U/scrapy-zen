@@ -109,74 +109,41 @@ class ZenAddon:
         settings.set("HTTP_SERVER_URI", os.getenv("HTTP_SERVER_URI"), "addon")
         settings.set("HTTP_TOKEN", os.getenv("HTTP_TOKEN"), "addon")
 
-        # # download handler
-        # settings.set("DOWNLOAD_HANDLERS", {
-        #     "http": "scrapy_zen.handler.ZenDownloadHandler",
-        #     "https": "scrapy_zen.handler.ZenDownloadHandler",
-        # }, "addon")
-
         # scrapy-zyte-api
-        if settings.get("ZYTE_ENABLED"):
-            settings.set("ZYTE_API_KEY", os.getenv("ZYTE_API_KEY"), "addon")
-            settings.set("COOKIES_ENABLED", False, "addon")
-            settings.set(
-                "DOWNLOAD_HANDLERS",
-                {
-                    "http": "scrapy_zyte_api.ScrapyZyteAPIDownloadHandler",
-                    "https": "scrapy_zyte_api.ScrapyZyteAPIDownloadHandler",
-                },
-                "addon",
-            )
-            settings["DOWNLOADER_MIDDLEWARES"].update(
-                {"scrapy_zyte_api.ScrapyZyteAPIDownloaderMiddleware": 633}
-            )
-            settings["SPIDER_MIDDLEWARES"].update(
-                {
-                    "scrapy_zyte_api.ScrapyZyteAPISpiderMiddleware": 100,
-                    "scrapy_zyte_api.ScrapyZyteAPIRefererSpiderMiddleware": 1000,
-                }
-            )
-            settings.set(
-                "REQUEST_FINGERPRINTER_CLASS",
-                "scrapy_zyte_api.ScrapyZyteAPIRequestFingerprinter",
-                "addon",
-            )
-            settings.set("USER_AGENT", None, "addon")
+        settings.set("ZYTE_API_KEY", os.getenv("ZYTE_API_KEY"), "addon")
+        settings["DOWNLOADER_MIDDLEWARES"].update(
+            {"scrapy_zyte_api.ScrapyZyteAPIDownloaderMiddleware": 643}
+        )
+        settings["SPIDER_MIDDLEWARES"].update(
+            {
+                "scrapy_zyte_api.ScrapyZyteAPISpiderMiddleware": 100,
+                "scrapy_zyte_api.ScrapyZyteAPIRefererSpiderMiddleware": 1000,
+            }
+        )
+        settings.set(
+            "REQUEST_FINGERPRINTER_CLASS",
+            "scrapy_zyte_api.ScrapyZyteAPIRequestFingerprinter",
+            "addon",
+        )
+
         # scrapy-playwright
-        elif settings.get("PLAYWRIGHT_ENABLED"):
-            settings.set(
-                "DOWNLOAD_HANDLERS",
-                {
-                    "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
-                    "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
-                },
-                "addon",
-            )
-            settings.set(
-                "TWISTED_REACTOR",
-                "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
-                "addon",
-            )
-            settings.set(
-                "PLAYWRIGHT_ABORT_REQUEST",
-                lambda req: req.resource_type == "image" or ".jpg" in req.url,
-                "addon",
-            )
-            settings.set("PLAYWRIGHT_PROCESS_REQUEST_HEADERS", None, "addon")
-            settings.set("USER_AGENT", None, "addon")
-        # scrapy-impersonate
-        elif settings.get("IMPERSONATE_ENABLED"):
-            settings.set(
-                "DOWNLOAD_HANDLERS",
-                {
-                    "http": "scrapy_impersonate.ImpersonateDownloadHandler",
-                    "https": "scrapy_impersonate.ImpersonateDownloadHandler",
-                },
-                "addon",
-            )
-            settings.set("USER_AGENT", None, "addon")
-            settings.set(
-                "TWISTED_REACTOR",
-                "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
-                "addon",
-            )
+        settings.set(
+            "PLAYWRIGHT_ABORT_REQUEST",
+            lambda req: req.resource_type == "image" or ".jpg" in req.url,
+            "addon",
+        )
+        settings.set("PLAYWRIGHT_PROCESS_REQUEST_HEADERS", None, "addon")
+        
+        # download handler
+        settings.set("DOWNLOAD_HANDLERS", {
+            "http": "scrapy_zen.handler.ZenDownloadHandler",
+            "https": "scrapy_zen.handler.ZenDownloadHandler",
+        }, "addon")
+
+        settings.set("USER_AGENT", None, "addon")
+        settings.set("COOKIES_ENABLED", False, "addon")
+        settings.set(
+            "TWISTED_REACTOR",
+            "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
+            "addon",
+        )
