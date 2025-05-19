@@ -513,7 +513,7 @@ class GRPCPipeline:
             try:
                 self.channel_grpc = grpc.aio.secure_channel(self.uri, grpc.ssl_channel_credentials())
                 self.client_grpc = self.feed_pb2_grpc.IngressServiceStub(self.channel_grpc)
-                await asyncio.wait_for(self.channel_grpc.channel_ready, timeout=10.0)
+                await asyncio.wait_for(self.channel_grpc.channel_ready(), timeout=10.0)
             except (Exception, asyncio.TimeoutError) as e:
                 spider.logger.error(e)
                 await self.close_connection()
