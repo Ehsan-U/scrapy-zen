@@ -551,6 +551,7 @@ class GRPCPipeline:
             spider.logger.error(f"Failed to send to gRPC server: {item['_id']}\n{str(e)}")
             await self.close_connection()
         else:
+            item["_delivered"] = True
             spider.logger.debug(f"Sent to gRPC server [{feed_id}]: {item['_id']}")
 
 
