@@ -479,12 +479,20 @@ class GRPCPipeline:
         crawler.signals.connect(p.spider_opened, signal=signals.spider_opened)
         crawler.signals.connect(p.spider_closed, signal=signals.spider_closed)
         return p
-    
+
+
+    async def close_connection(self) -> None:
+        if self.channel_grpc:
+            await self.channel_grpc.close()
+        self.channel_grpc = None
+        self.client_grpc = None
+        self.connected.clear()
+
 
     async def spider_opened(self, spider: Spider) -> None:
         self.connected.clear()
         self.t = asyncio.create_task(self.connect(spider))
-    
+
 
     async def spider_closed(self, spider: Spider) -> None:
         if self.t and not self.t.done():
@@ -493,8 +501,7 @@ class GRPCPipeline:
                 await self.t
             except asyncio.CancelledError:
                 pass
-        if self.channel_grpc:
-            await self.channel_grpc.close()
+        await self.close_connection()
 
 
     async def connect(self, spider: Spider) -> None:
@@ -508,10 +515,7 @@ class GRPCPipeline:
                 self.client_grpc = self.feed_pb2_grpc.IngressServiceStub(self.channel_grpc)
                 await asyncio.wait_for(self.channel_grpc.channel_ready, timeout=10.0)
             except (Exception, asyncio.TimeoutError) as e:
-                if self.channel_grpc:
-                    await self.channel_grpc.close()
-                    self.channel_grpc = None
-                self.client_grpc = None
+                await self.close_connection()
                 continue
             else:
                 spider.logger.debug("connected to gRPC server")
@@ -522,7 +526,7 @@ class GRPCPipeline:
         async with self.sem:
             await self._send(item, spider)
         return item
-    
+
 
     async def _send(self, item: Dict, spider: Spider) -> None:
         _item = {
@@ -544,7 +548,7 @@ class GRPCPipeline:
             await self.client_grpc.SubmitFeedMessage(feed_message)
         except grpc.RpcError as e:
             spider.logger.error(f"Failed to send to gRPC server: {item['_id']}\n{str(e)}")
-            self.connected.clear()
+            await self.close_connection()
         else:
             spider.logger.debug(f"Sent to gRPC server [{feed_id}]: {item['_id']}")
 
