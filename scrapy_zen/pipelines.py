@@ -1,3 +1,4 @@
+import asyncio
 from collections import defaultdict
 import importlib
 import json
@@ -443,11 +444,11 @@ class GRPCPipeline:
         proto_module (str): dotted path to gRPC contract module
         exclude_fields (List[str]): List of fields that needs to be excluded for this pipeline
     """
-
     exclude_fields: List[str] = []
 
+
     def __init__(
-        self, uri: str, token: str, id: str, id_headline: str, proto_module: str
+        self, uri: str, token: str, id: str, id_headline: str, proto_module: str,
     ) -> None:
         self.uri = uri
         self.token = token
@@ -455,10 +456,12 @@ class GRPCPipeline:
         self.id_headline = id_headline
         self.feed_pb2 = importlib.import_module(f"{proto_module}.feed_pb2")
         self.feed_pb2_grpc = importlib.import_module(f"{proto_module}.feed_pb2_grpc")
-        # gRPC channel is thread-safe
-        self._channel_grpc = grpc.secure_channel(
-            self.uri, grpc.ssl_channel_credentials()
-        )
+        self.channel_grpc: grpc.aio.Channel = None
+        self.client_grpc = None
+        self.connected = asyncio.Event()
+        self.t: asyncio.Task = None
+        self.sem = asyncio.Semaphore(16)
+
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
@@ -466,19 +469,62 @@ class GRPCPipeline:
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
-        return cls(
+        p = cls(
             uri=crawler.settings.get("GRPC_SERVER_URI"),
             token=crawler.settings.get("GRPC_TOKEN"),
             id=crawler.settings.get("GRPC_ID"),
             id_headline=crawler.settings.get("GRPC_ID_HEADLINE"),
             proto_module=crawler.settings.get("GRPC_PROTO_MODULE"),
         )
+        crawler.signals.connect(p.spider_opened, signal=signals.spider_opened)
+        crawler.signals.connect(p.spider_closed, signal=signals.spider_closed)
+        return p
+    
 
-    def process_item(self, item: Dict, spider: Spider) -> Deferred:
-        d = self._send(item, spider)
-        return d
+    async def spider_opened(self, spider: Spider) -> None:
+        self.connected.clear()
+        self.t = asyncio.create_task(self.connect(spider))
+    
 
-    def _send(self, item: Dict, spider: Spider) -> Deferred:
+    async def spider_closed(self, spider: Spider) -> None:
+        if self.t and not self.t.done():
+            self.t.cancel()
+            try:
+                await self.t
+            except asyncio.CancelledError:
+                pass
+        if self.channel_grpc:
+            await self.channel_grpc.close()
+
+
+    async def connect(self, spider: Spider) -> None:
+        while True:
+            if self.connected.is_set():
+                await asyncio.sleep(2.0)
+                continue
+            spider.logger.debug("connecting to gRPC server")
+            try:
+                self.channel_grpc = grpc.aio.secure_channel(self.uri, grpc.ssl_channel_credentials())
+                self.client_grpc = self.feed_pb2_grpc.IngressServiceStub(self.channel_grpc)
+                await asyncio.wait_for(self.channel_grpc.channel_ready, timeout=10.0)
+            except (Exception, asyncio.TimeoutError) as e:
+                if self.channel_grpc:
+                    await self.channel_grpc.close()
+                    self.channel_grpc = None
+                self.client_grpc = None
+                continue
+            else:
+                spider.logger.debug("connected to gRPC server")
+                self.connected.set()
+
+
+    async def process_item(self, item: Dict, spider: str) -> Dict:
+        async with self.sem:
+            await self._send(item, spider)
+        return item
+    
+
+    async def _send(self, item: Dict, spider: Spider) -> None:
         _item = {
             k: v
             for k, v in item.items()
@@ -490,36 +536,17 @@ class GRPCPipeline:
         feed_message = self.feed_pb2.FeedMessage(
             token=self.token,
             feedId=feed_id,
-            messageId=item["_id"],
+            messageId=item['_id'],
             message=json.dumps(_item),
         )
-
-        def _on_success(result) -> Dict:
-            item["_delivered"] = True
-            spider.logger.debug(f"Sent to gRPC server [{feed_id}]: {item['_id']}")
-            return item
-
-        def _on_failure(failure) -> None:
-            spider.logger.error(
-                f"Failed to send to gRPC server: {item['_id']}\n{failure.value}"
-            )
-            return item
-
-        d = deferToThread(self._submit, feed_message)
-        d.addCallback(_on_success)
-        d.addErrback(_on_failure)
-        return d
-
-    def _submit(self, feed_message) -> None:
+        await self.connected.wait()
         try:
-            # gRPC clients are lightweight, don't need to be cached or reused
-            client = self.feed_pb2_grpc.IngressServiceStub(self._channel_grpc)
-            client.SubmitFeedMessage(feed_message)
+            await self.client_grpc.SubmitFeedMessage(feed_message)
         except grpc.RpcError as e:
-            raise e
-
-    def close_spider(self, spider: Spider) -> None:
-        self._channel_grpc.close()
+            spider.logger.error(f"Failed to send to gRPC server: {item['_id']}\n{str(e)}")
+            self.connected.clear()
+        else:
+            spider.logger.debug(f"Sent to gRPC server [{feed_id}]: {item['_id']}")
 
 
 class WSPipeline:
