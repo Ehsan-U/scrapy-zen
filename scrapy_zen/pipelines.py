@@ -18,7 +18,6 @@ import websockets
 import psycopg
 from zoneinfo import ZoneInfo
 import logging
-from contextlib import asynccontextmanager
 
 logging.getLogger("websockets").setLevel(logging.WARNING)
 
@@ -94,57 +93,57 @@ class PreProcessingPipeline(ItemValidationPipeline):
             stats=crawler.stats,
         )
         crawler.signals.connect(p.spider_opened, signal=signals.spider_opened)
+        crawler.signals.connect(p.spider_closed, signal=signals.spider_closed)
         return p
 
-    @asynccontextmanager
-    async def connect_db(self):
+    async def spider_opened(self, spider: Spider) -> None:
         try:
-            async with await psycopg.AsyncConnection.connect(f"""
+            self.conn = await psycopg.AsyncConnection.connect(f"""
                 dbname={self.settings.get("DB_NAME")}
                 user={self.settings.get("DB_USER")}
                 password={self.settings.get("DB_PASS")}
                 host={self.settings.get("DB_HOST")}
                 port={self.settings.get("DB_PORT")}
-            """) as conn:
-                async with conn.cursor() as cursor:
-                    yield cursor
-                await conn.commit()
+            """) 
         except:
-            raise
-
-    async def spider_opened(self, spider: Spider) -> None:
-        async with self.connect_db() as cursor:
-            await cursor.execute("""CREATE TABLE IF NOT EXISTS Items (
-                id TEXT PRIMARY KEY,
-                spider TEXT,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """)
+            raise NotConfigured("Failed to connect to DB")
+        self.cursor = self.conn.cursor()
+        await self.cursor.execute("""CREATE TABLE IF NOT EXISTS Items (
+            id TEXT PRIMARY KEY,
+            spider TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+        await self.conn.commit()
         days = self.settings.getint("DB_EXPIRY_DAYS")
         if days:
             spider.logger.warning("Expiration enabled for DB records")
             await self._cleanup_old_records(days)
 
+    async def spider_closed(self, spider: Spider) -> None:
+        if hasattr(self, "conn"):
+            await self.cursor.close()
+            await self.conn.close()
+
     async def db_insert(self, id: str, spider_name: str) -> None:
-        async with self.connect_db() as cursor:
-            await cursor.execute(
-                "INSERT INTO Items (id,spider) VALUES (%s,%s)", (id, spider_name)
-            )
+        await self.cursor.execute(
+            "INSERT INTO Items (id,spider) VALUES (%s,%s)", (id, spider_name)
+        )
+        await self.conn.commit()
 
     async def db_exists(self, id: str, spider_name: str) -> bool:
-        async with self.connect_db() as cursor:
-            result = await cursor.execute(
-                "SELECT id FROM Items WHERE id=%s AND spider=%s", (id, spider_name)
-            )
-            record = await result.fetchone()
-            return bool(record)
+        result = await self.cursor.execute(
+            "SELECT id FROM Items WHERE id=%s AND spider=%s", (id, spider_name)
+        )
+        record = await result.fetchone()
+        return bool(record)
 
     async def _cleanup_old_records(self, days: int) -> None:
-        async with self.connect_db() as cursor:
-            await cursor.execute(
-                "DELETE FROM Items WHERE timestamp < NOW() - (INTERVAL '1 day' * %s)",
-                (days,),
-            )
+        await self.cursor.execute(
+            "DELETE FROM Items WHERE timestamp < NOW() - (INTERVAL '1 day' * %s)",
+            (days,),
+        )
+        await self.conn.commit()
 
     def is_recent(
         self, date_str: str, date_format: str, debug_info: str, spider: Spider
@@ -221,29 +220,33 @@ class PostProcessingPipeline:
         for setting in settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
-        return cls(settings=crawler.settings)
+        p = cls(settings=crawler.settings)
+        crawler.signals.connect(p.spider_opened, signal=signals.spider_opened)
+        crawler.signals.connect(p.spider_closed, signal=signals.spider_closed)
+        return p
 
-    @asynccontextmanager
-    async def connect_db(self):
+    async def spider_opened(self, spider: Spider) -> None:
         try:
-            async with await psycopg.AsyncConnection.connect(f"""
+            self.conn = await psycopg.AsyncConnection.connect(f"""
                 dbname={self.settings.get("DB_NAME")}
                 user={self.settings.get("DB_USER")}
                 password={self.settings.get("DB_PASS")}
                 host={self.settings.get("DB_HOST")}
                 port={self.settings.get("DB_PORT")}
-            """) as conn:
-                async with conn.cursor() as cursor:
-                    yield cursor
-                await conn.commit()
+            """) 
         except:
-            raise
+            raise NotConfigured("Failed to connect to DB")
+        self.cursor = self.conn.cursor()
+
+    async def spider_closed(self, spider: Spider) -> None:
+        if hasattr(self, "conn"):
+            await self.cursor.close()
+            await self.conn.close()
 
     async def db_remove(self, id: str, spider_name: str) -> None:
-        async with self.connect_db() as cursor:
-            await cursor.execute(
-                "DELETE FROM Items WHERE id=%s AND spider=%s", (id, spider_name)
-            )
+        await self.cursor.execute(
+            "DELETE FROM Items WHERE id=%s AND spider=%s", (id, spider_name)
+        )
 
     async def process_item(self, item: Dict, spider: Spider) -> Dict:
         if not item.pop("_delivered", None):
