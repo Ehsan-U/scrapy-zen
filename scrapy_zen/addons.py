@@ -143,7 +143,7 @@ class ZenAddon:
             "addon",
         )
         settings.set("PLAYWRIGHT_PROCESS_REQUEST_HEADERS", None, "addon")
-        
+
         # download handler
         settings.set("DOWNLOAD_HANDLERS", {
             "http": "scrapy_zen.handler.ZenDownloadHandler",
@@ -161,10 +161,9 @@ class ZenAddon:
         # dupefilter
         if not settings.get("JOBDIR"):
             jobdir = Path(resource_filename("scrapy_zen", "jobdirs")) / self.crawler.spider.name
-            settings.set("JOBDIR", jobdir, "addon")
+            settings.set("JOBDIR", str(jobdir), "addon")
         settings.set(
             "DUPEFILTER_CLASS",
             "scrapy_zen.dupefilters.ZenDupeFilter",
             "addon",
         )
-        
