@@ -110,7 +110,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
                     yield cursor
                 await conn.commit()
         except:
-            raise NotConfigured("Failed to connect to DB")
+            raise
 
     async def spider_opened(self, spider: Spider) -> None:
         async with self.connect_db() as cursor:
@@ -137,7 +137,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
                 "SELECT id FROM Items WHERE id=%s AND spider=%s", (id, spider_name)
             )
             record = await result.fetchone()
-        return bool(record)
+            return bool(record)
 
     async def _cleanup_old_records(self, days: int) -> None:
         async with self.connect_db() as cursor:
@@ -225,7 +225,6 @@ class PostProcessingPipeline:
 
     @asynccontextmanager
     async def connect_db(self):
-        conn = None
         try:
             async with await psycopg.AsyncConnection.connect(f"""
                 dbname={self.settings.get("DB_NAME")}
@@ -238,7 +237,7 @@ class PostProcessingPipeline:
                     yield cursor
                 await conn.commit()
         except:
-            raise NotConfigured("Failed to connect to DB")
+            raise
 
     async def db_remove(self, id: str, spider_name: str) -> None:
         async with self.connect_db() as cursor:
