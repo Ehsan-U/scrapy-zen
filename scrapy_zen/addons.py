@@ -2,6 +2,7 @@ from scrapy.settings import Settings
 import os
 from pkg_resources import resource_filename
 from pathlib import Path
+from scrapy.crawler import Crawler
 
 from .logformatter import ZenLogFormatter
 
@@ -71,6 +72,15 @@ class SpidermonAddon:
 
 
 class ZenAddon:
+
+    def __init__(self, crawler: Crawler) -> None:
+        super().__init__()
+        self.crawler = crawler
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls(crawler)
+
     def update_settings(self, settings: Settings) -> None:
         # logger
         settings.set("LOG_FORMATTER", ZenLogFormatter, "addon")
@@ -147,3 +157,14 @@ class ZenAddon:
             "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
             "addon",
         )
+
+        # dupefilter
+        if not settings.get("JOBDIR"):
+            jobdir = Path(resource_filename("scrapy_zen", "jobdirs")) / self.crawler.spider.name
+            settings.set("JOBDIR", jobdir, "addon")
+        settings.set(
+            "DUPEFILTER_CLASS",
+            "scrapy_zen.dupefilters.ZenDupeFilter",
+            "addon",
+        )
+        

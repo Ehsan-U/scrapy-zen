@@ -5,42 +5,63 @@ from dotenv import load_dotenv
 load_dotenv()
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
-class Book(scrapy.Spider):
-    name = "book"
-    start_urls = ['https://books.toscrape.com/']
+
+class BookSpider(scrapy.Spider):
+    name = 'books'
+    allowed_domains = ['books.toscrape.com']
+
+    def start_requests(self):
+        url = "http://books.toscrape.com/catalogue/category/books_1/index.html"
+        yield scrapy.Request(url=url, callback=self.parse, dont_filter=True)
 
     def parse(self, response):
-        self.logger.error("testing")
-        for book in response.xpath("//article"):
+        # Find all book articles on the page
+        books = response.css('article.product_pod')
+        
+        for book in books:
             yield {
-                "_id": book.xpath(".//h3/a/text()").get(),
-                "title": book.xpath(".//h3/a/text()").get()
+                'title': book.css('h3 a::attr(title)').get(),
+                'price': book.css('p.price_color::text').get(),
+                'rating': book.css('p.star-rating::attr(class)').get().split()[-1],
+                'availability': book.css('p.availability::text').get().strip(),
+                'url': book.css('h3 a::attr(href)').get()
             }
-            # yield scrapy.Request("https://books.toscrape.com/", meta={"_id": book.xpath(".//h3/a/text()").get()}, callback=lambda x: None, dont_filter=True)
+            yield response.follow(
+                book.css('h3 a::attr(href)').get(),
+                callback=self.parse_book,
+                meta={'book_title': book.css('h3 a::attr(title)').get()}
+            )
+
+    def parse_book(self, response):
+        book_title = response.meta['book_title']
+        book_description = response.css('meta[name="description"]::attr(content)').get()
+        book_description = book_description.split(' - ')[0]
+        book_image_url = response.css('img::attr(src)').get()
+        book_image_url = response.urljoin(book_image_url)
+        
+        yield {
+            'book_title': book_title,
+            'book_description': book_description,
+            'book_image_url': book_image_url
+        }
+
 
 crawler = CrawlerProcess(settings={
     "DOWNLOADER_MIDDLEWARES": {
         "scrapy_zen.middlewares.PreProcessingMiddleware": 543,
     },
     "ITEM_PIPELINES": {
-        "scrapy_zen.pipelines.PreProcessingPipeline": 543
+        "scrapy_zen.pipelines.PreProcessingPipeline": 543,
+        "scrapy_zen.pipelines.PostProcessingPipeline": 544
     },
     "ADDONS": {
         "scrapy_zen.addons.ZenAddon": 1,
         "scrapy_zen.addons.SpidermonAddon": 2,
     },
     "LOG_FILE": "logs.log",
-    "LOG_FILE_APPEND": False,
+    "ZEN_VALIDATION_SCHEMA": "NEWS",
+    # "LOG_FILE_APPEND": False,
     "BOT_NAME": "culture_entertainment",
 })
-crawler.crawl(Book)
+crawler.crawl(BookSpider)
 crawler.start()
-
-# import logparser
-# from pprint import pprint
-
-# with open("logs.log", 'r') as f:
-#     logs = f.read()
-
-# d = logparser.parse(logs)
-# pprint(d['log_categories']['error_logs']['details'])
