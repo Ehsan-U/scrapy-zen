@@ -104,7 +104,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
                 password={self.settings.get("DB_PASS")}
                 host={self.settings.get("DB_HOST")}
                 port={self.settings.get("DB_PORT")}
-            """) 
+            """)
         except:
             raise NotConfigured("Failed to connect to DB")
         self.cursor = self.conn.cursor()
@@ -126,10 +126,13 @@ class PreProcessingPipeline(ItemValidationPipeline):
             await self.conn.close()
 
     async def db_insert(self, id: str, spider_name: str) -> None:
-        await self.cursor.execute(
-            "INSERT INTO Items (id,spider) VALUES (%s,%s)", (id, spider_name)
-        )
-        await self.conn.commit()
+        try:
+            await self.cursor.execute(
+                "INSERT INTO Items (id,spider) VALUES (%s,%s)", (id, spider_name)
+            )
+            await self.conn.commit()
+        except:
+            pass
 
     async def db_exists(self, id: str, spider_name: str) -> bool:
         result = await self.cursor.execute(
@@ -233,7 +236,7 @@ class PostProcessingPipeline:
                 password={self.settings.get("DB_PASS")}
                 host={self.settings.get("DB_HOST")}
                 port={self.settings.get("DB_PORT")}
-            """) 
+            """)
         except:
             raise NotConfigured("Failed to connect to DB")
         self.cursor = self.conn.cursor()
