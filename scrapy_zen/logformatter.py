@@ -34,7 +34,7 @@ class ZenLogFormatter(logformatter.LogFormatter):
 
     def dropped(self, item: Dict, exception: DropItem, response: Response, spider: Spider) -> LogFormatterResult:
         return {
-            'level': logging.WARNING,
+            'level': logging.DEBUG,
             'msg': self.YELLOW + "Dropped: %(exception)s" + self.RESET + os.linesep + "%(item)s",
             'args': {
                 'exception': exception,
