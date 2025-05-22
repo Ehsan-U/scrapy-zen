@@ -111,6 +111,8 @@ class PreProcessingPipeline(ItemValidationPipeline):
         await self.cursor.execute("""CREATE TABLE IF NOT EXISTS Items (
             id TEXT PRIMARY KEY,
             spider TEXT,
+            scraped_at TEXT,
+            published_at TEXT,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """)
@@ -125,10 +127,10 @@ class PreProcessingPipeline(ItemValidationPipeline):
             await self.cursor.close()
             await self.conn.close()
 
-    async def db_insert(self, id: str, spider_name: str) -> None:
+    async def db_insert(self, id: str, spider_name: str, item: Dict) -> None:
         try:
             await self.cursor.execute(
-                "INSERT INTO Items (id,spider) VALUES (%s,%s)", (id, spider_name)
+                "INSERT INTO Items (id,spider,scraped_at,published_at) VALUES (%s,%s,%s,%s)", (id, spider_name, item.get("scraped_at"), item.get("published_at"))
             )
             await self.conn.commit()
         except:
@@ -189,7 +191,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
             _id = normalize_url(_id)
             if await self.db_exists(_id, spider.name):
                 raise DropItem(f"Already exists [{_id}]")
-            await self.db_insert(_id, spider.name)
+            await self.db_insert(_id, spider.name, item)
         _dt = item.pop("_dt", None)
         _dt_format = item.pop("_dt_format", None)
         if _dt:
