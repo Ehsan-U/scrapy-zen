@@ -202,6 +202,8 @@ class PreProcessingPipeline(ItemValidationPipeline):
         # replace 'not scraped yet' & 'n/a' with empty or null in body (just to comply with gRPC feed)
         if item.get("body") in ["not scraped yet", "n/a"]:
             item["body"] = None
+        if item.get("published_at") in ["n/a"]:
+            item['published_at'] = None
         return item
 
 
