@@ -543,7 +543,7 @@ class GRPCPipeline:
 
     async def _send(self, item: Dict, spider: Spider) -> None:
         _item = {
-            k: v
+            k: self.to_timestamp(v, spider) if k in ["scraped_at", "published_at"] else v
             for k, v in item.items()
             if not k.startswith("_") and k.lower() not in self.exclude_fields
         }
@@ -565,6 +565,16 @@ class GRPCPipeline:
         else:
             item["_delivered"] = True
             spider.logger.debug(f"Sent to gRPC server [{feed_id}]: {item['_id']}")
+
+
+    def to_timestamp(self, dt: str, spider: Spider) -> int:
+        if not dt:
+            return None
+        try:
+            dt = dateparser.parse(dt)
+            return int(dt.timestamp() * 1000)
+        except Exception as e:
+            spider.logger.error(f"Failed to convert datetime to timestamp: {str(e)}")
 
 
 class WSPipeline:
