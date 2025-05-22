@@ -1,5 +1,7 @@
 import logging
 from pathlib import Path
+from typing import Self
+from scrapy.settings import BaseSettings
 import time
 from scrapy.dupefilters import RFPDupeFilter
 from scrapy.http import Request
@@ -8,9 +10,22 @@ from scrapy.utils.request import (
     RequestFingerprinterProtocol,
 )
 
+from scrapy_zen.utils import job_dir
+
 
 
 class ZenDupeFilter(RFPDupeFilter):
+
+    @classmethod
+    def _from_settings(
+        cls,
+        settings: BaseSettings,
+        *,
+        fingerprinter: RequestFingerprinterProtocol | None = None,
+    ) -> Self:
+        debug = settings.getbool("DUPEFILTER_DEBUG")
+        return cls(job_dir(settings), debug, fingerprinter=fingerprinter)
+
 
     def __init__(
         self,
@@ -37,14 +52,14 @@ class ZenDupeFilter(RFPDupeFilter):
                     continue
                 self.fingerprints.add(fp)
                 valid_entries.add(x.rstrip())
-            
+
             self.logger.info(f"Loaded {len(valid_entries)} entries from {path}")
             self.file.truncate(0) # clear
             self.file.seek(0) # move to start
             for entry in valid_entries:
                 self.file.write(entry + "\n")
             self.file.flush()
-            
+
 
     def request_seen(self, request: Request) -> bool:
         fp = self.request_fingerprint(request)

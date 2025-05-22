@@ -159,9 +159,8 @@ class ZenAddon:
         )
 
         # dupefilter
-        if not settings.get("JOBDIR"):
-            jobdir = Path(resource_filename("scrapy_zen", "jobdirs")) / self.crawler.spider.name
-            settings.set("JOBDIR", str(jobdir), "addon")
+        jobdir = Path(resource_filename("scrapy_zen", "jobdirs")) / self.crawler.spider.name
+        settings.set("ZEN_JOBDIR", str(jobdir), "addon")
         settings.set(
             "DUPEFILTER_CLASS",
             "scrapy_zen.dupefilters.ZenDupeFilter",
