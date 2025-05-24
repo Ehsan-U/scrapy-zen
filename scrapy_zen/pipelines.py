@@ -19,6 +19,7 @@ import websockets
 import logging
 
 logging.getLogger("websockets").setLevel(logging.WARNING)
+logging.getLogger("pymongo").setLevel(logging.ERROR)
 
 from spidermon.contrib.scrapy.pipelines import ItemValidationPipeline
 from scrapy_zen import normalize_url
