@@ -147,6 +147,7 @@ db.json
 # Rope project settings
 .ropeproject
 
+db_test.py
 jobdirs/*
 # mkdocs documentation
 /site

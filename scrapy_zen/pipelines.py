@@ -4,19 +4,18 @@ import importlib
 import json
 from typing import Dict, List, Self
 import grpc
+from pymongo import AsyncMongoClient
 import scrapy
 from scrapy.crawler import Crawler
 from scrapy.settings import Settings
 from scrapy.spiders import Spider
 from scrapy.exceptions import DropItem, NotConfigured
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from scrapy.utils.defer import maybe_deferred_to_future
 from scrapy.http.request import NO_CALLBACK
 import dateparser
 from scrapy import Item, signals
 import websockets
-import psycopg
-from zoneinfo import ZoneInfo
 import logging
 
 logging.getLogger("websockets").setLevel(logging.WARNING)
@@ -38,7 +37,6 @@ class PreProcessingPipeline(ItemValidationPipeline):
         validation_enabled: bool,
         validators=None,
         stats=None,
-        logger=None,
     ) -> None:
         if validation_enabled:
             super().__init__(
@@ -56,7 +54,6 @@ class PreProcessingPipeline(ItemValidationPipeline):
             )
         self.settings = settings
         self.validation_enabled = validation_enabled
-        self.spider_logger = logger
 
 
     @classmethod
@@ -94,7 +91,6 @@ class PreProcessingPipeline(ItemValidationPipeline):
             validation_enabled=True if validators else False,
             validators=validators,
             stats=crawler.stats,
-            logger=crawler.spider.logger,
         )
         crawler.signals.connect(p.spider_opened, signal=signals.spider_opened)
         crawler.signals.connect(p.spider_closed, signal=signals.spider_closed)
@@ -102,65 +98,41 @@ class PreProcessingPipeline(ItemValidationPipeline):
 
     async def spider_opened(self, spider: Spider) -> None:
         try:
-            self.conn = await psycopg.AsyncConnection.connect(f"""
-                dbname={self.settings.get("DB_NAME")}
-                user={self.settings.get("DB_USER")}
-                password={self.settings.get("DB_PASS")}
-                host={self.settings.get("DB_HOST")}
-                port={self.settings.get("DB_PORT")}
-            """)
+            mongo_uri = f"mongodb://{self.settings.get('DB_USER')}:{self.settings.get('DB_PASS')}@{self.settings.get('DB_HOST')}:{self.settings.get ('DB_PORT')}/"
+            self.mongo_client = AsyncMongoClient(mongo_uri)
+            await self.mongo_client.aconnect()
+            self.db = self.mongo_client[self.settings.get("DB_NAME")]
+            self.collection = self.db["Items"]
         except:
             raise NotConfigured("Failed to connect to DB")
-        self.cursor = self.conn.cursor()
-        await self.cursor.execute("""CREATE TABLE IF NOT EXISTS Items (
-            id TEXT PRIMARY KEY,
-            spider TEXT,
-            scraped_at TEXT,
-            published_at TEXT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """)
-        await self.conn.commit()
         days = self.settings.getint("DB_EXPIRY_DAYS")
         if days:
             spider.logger.warning("Expiration enabled for DB records")
             await self._cleanup_old_records(days)
 
     async def spider_closed(self, spider: Spider) -> None:
-        if hasattr(self, "conn"):
-            await self.cursor.close()
-            await self.conn.close()
+        if hasattr(self, "mongo_client"):
+            await self.mongo_client.close()
 
     async def db_insert(self, id: str, spider_name: str, item: Dict) -> None:
-        try:
-            await self.cursor.execute(
-                "INSERT INTO Items (id,spider,scraped_at,published_at) VALUES (%s,%s,%s,%s)", (id, spider_name, item.get("scraped_at"), item.get("published_at"))
-            )
-        except Exception as e:
-            raise DropItem(f"[db_insert] Already exists [{id}]: {e}")
-        else:
-            await self.conn.commit()
+        await self.collection.insert_one({
+            "id": id, 
+            "spider": spider_name, 
+            "scraped_at": item.get("scraped_at"), 
+            "published_at": item.get("published_at"),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
 
     async def db_exists(self, id: str, spider_name: str) -> bool:
-        try:
-            await self.cursor.execute(
-                "SELECT id FROM Items WHERE id=%s AND spider=%s", (id, spider_name)
-            )
-            record = await self.cursor.fetchone()
-            return record is not None
-        except Exception as e:
-            self.spider_logger.error(f"db_exists: {e}")
+        result = await self.collection.find_one({"id": id, "spider": spider_name})
+        return result is not None
 
     async def _cleanup_old_records(self, days: int) -> None:
-        try:
-            await self.cursor.execute(
-                "DELETE FROM Items WHERE timestamp < NOW() - (INTERVAL '1 day' * %s)",
-                (days,),
-            )
-        except Exception as e:
-            self.spider_logger.error(f"_cleanup_old_records: {e}")
-        else:
-            await self.conn.commit()
+        await self.collection.delete_many({
+            "timestamp": {
+                "$lt": datetime.now(timezone.utc) - timedelta(days=days)
+            }
+        })
 
     def is_recent(
         self, date_str: str, date_format: str, debug_info: str, spider: Spider
@@ -171,7 +143,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
         try:
             if not date_str:
                 return True
-            utc_today = datetime.now(ZoneInfo("UTC")).date()
+            utc_today = datetime.now(timezone.utc).date()
             input_date = dateparser.parse(
                 date_string=date_str,
                 date_formats=[date_format] if date_format is not None else None,
@@ -248,26 +220,20 @@ class PostProcessingPipeline:
 
     async def spider_opened(self, spider: Spider) -> None:
         try:
-            self.conn = await psycopg.AsyncConnection.connect(f"""
-                dbname={self.settings.get("DB_NAME")}
-                user={self.settings.get("DB_USER")}
-                password={self.settings.get("DB_PASS")}
-                host={self.settings.get("DB_HOST")}
-                port={self.settings.get("DB_PORT")}
-            """)
+            mongo_uri = f"mongodb://{self.settings.get('DB_USER')}:{self.settings.get('DB_PASS')}@{self.settings.get('DB_HOST')}:{self.settings.get ('DB_PORT')}/"
+            self.mongo_client = AsyncMongoClient(mongo_uri)
+            await self.mongo_client.aconnect()
+            self.db = self.mongo_client[self.settings.get("DB_NAME")]
+            self.collection = self.db["Items"]
         except:
             raise NotConfigured("Failed to connect to DB")
-        self.cursor = self.conn.cursor()
 
     async def spider_closed(self, spider: Spider) -> None:
-        if hasattr(self, "conn"):
-            await self.cursor.close()
-            await self.conn.close()
+        if hasattr(self, "mongo_client"):
+            await self.mongo_client.close()
 
     async def db_remove(self, id: str, spider_name: str) -> None:
-        await self.cursor.execute(
-            "DELETE FROM Items WHERE id=%s AND spider=%s", (id, spider_name)
-        )
+        await self.collection.delete_one({"id": id, "spider": spider_name})
 
     async def process_item(self, item: Dict, spider: Spider) -> Dict:
         if not item.pop("_delivered", None):
