@@ -134,7 +134,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
     async def db_insert(self, id: str, spider_name: str, item: Dict) -> None:
         try:
             await self.cursor.execute(
-                "INSERT INTO Items (id,spider,scraped_at,published_at) VALUES (%s,%s,%s,%s)", (id, spider_name, item.get("scraped_at"), item.get("published_at"))
+                "INSERT INTO Items (id,spider,scraped_at,published_at) VALUES (%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING", (id, spider_name, item.get("scraped_at"), item.get("published_at"))
             )
         except Exception as e:
             self.spider_logger.error(e)
@@ -204,9 +204,11 @@ class PreProcessingPipeline(ItemValidationPipeline):
         _id = item.get("_id", None)
         if _id:
             _id = normalize_url(_id)
-            if await self.db_exists(_id, spider.name):
+            id_exists = await self.db_exists(_id, spider.name)
+            if id_exists:
                 raise DropItem(f"Already exists [{_id}]")
-            await self.db_insert(_id, spider.name, item)
+            else:
+                await self.db_insert(_id, spider.name, item)
         _dt = item.pop("_dt", None)
         _dt_format = item.pop("_dt_format", None)
         if _dt:
