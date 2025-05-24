@@ -117,11 +117,11 @@ class PreProcessingPipeline(ItemValidationPipeline):
 
     async def db_insert(self, id: str, spider_name: str, item: Dict) -> None:
         await self.collection.insert_one({
-            "id": id, 
-            "spider": spider_name, 
-            "scraped_at": item.get("scraped_at"), 
+            "id": id,
+            "spider": spider_name,
+            "scraped_at": item.get("scraped_at"),
             "published_at": item.get("published_at"),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00","Z"),
         })
 
     async def db_exists(self, id: str, spider_name: str) -> bool:
