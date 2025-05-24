@@ -137,20 +137,20 @@ class PreProcessingPipeline(ItemValidationPipeline):
                 "INSERT INTO Items (id,spider,scraped_at,published_at) VALUES (%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING", (id, spider_name, item.get("scraped_at"), item.get("published_at"))
             )
         except Exception as e:
-            self.spider_logger.error(e)
+            self.spider_logger.error(f"db_insert: {e}")
             await self.conn.rollback()
         else:
             await self.conn.commit()
 
     async def db_exists(self, id: str, spider_name: str) -> bool:
         try:
-            result = await self.cursor.execute(
+            await self.cursor.execute(
                 "SELECT id FROM Items WHERE id=%s AND spider=%s", (id, spider_name)
             )
-            record = await result.fetchone()
-            return bool(record)
+            record = await self.cursor.fetchone()
+            return record is not None
         except Exception as e:
-            self.spider_logger.error(e)
+            self.spider_logger.error(f"db_exists: {e}")
             await self.conn.rollback()
 
     async def _cleanup_old_records(self, days: int) -> None:
@@ -160,7 +160,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
                 (days,),
             )
         except Exception as e:
-            self.spider_logger.error(e)
+            self.spider_logger.error(f"_cleanup_old_records: {e}")
             await self.conn.rollback()
         else:
             await self.conn.commit()
