@@ -38,6 +38,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
         validation_enabled: bool,
         validators=None,
         stats=None,
+        logger=None,
     ) -> None:
         if validation_enabled:
             super().__init__(
@@ -55,6 +56,8 @@ class PreProcessingPipeline(ItemValidationPipeline):
             )
         self.settings = settings
         self.validation_enabled = validation_enabled
+        self.spider_logger = logger
+
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
@@ -91,6 +94,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
             validation_enabled=True if validators else False,
             validators=validators,
             stats=crawler.stats,
+            logger=crawler.spider.logger,
         )
         crawler.signals.connect(p.spider_opened, signal=signals.spider_opened)
         crawler.signals.connect(p.spider_closed, signal=signals.spider_closed)
@@ -132,23 +136,34 @@ class PreProcessingPipeline(ItemValidationPipeline):
             await self.cursor.execute(
                 "INSERT INTO Items (id,spider,scraped_at,published_at) VALUES (%s,%s,%s,%s)", (id, spider_name, item.get("scraped_at"), item.get("published_at"))
             )
+        except Exception as e:
+            self.spider_logger.error(e)
+            await self.conn.rollback()
+        else:
             await self.conn.commit()
-        except:
-            pass
 
     async def db_exists(self, id: str, spider_name: str) -> bool:
-        result = await self.cursor.execute(
-            "SELECT id FROM Items WHERE id=%s AND spider=%s", (id, spider_name)
-        )
-        record = await result.fetchone()
-        return bool(record)
+        try:
+            result = await self.cursor.execute(
+                "SELECT id FROM Items WHERE id=%s AND spider=%s", (id, spider_name)
+            )
+            record = await result.fetchone()
+            return bool(record)
+        except Exception as e:
+            self.spider_logger.error(e)
+            await self.conn.rollback()
 
     async def _cleanup_old_records(self, days: int) -> None:
-        await self.cursor.execute(
-            "DELETE FROM Items WHERE timestamp < NOW() - (INTERVAL '1 day' * %s)",
-            (days,),
-        )
-        await self.conn.commit()
+        try:
+            await self.cursor.execute(
+                "DELETE FROM Items WHERE timestamp < NOW() - (INTERVAL '1 day' * %s)",
+                (days,),
+            )
+        except Exception as e:
+            self.spider_logger.error(e)
+            await self.conn.rollback()
+        else:
+            await self.conn.commit()
 
     def is_recent(
         self, date_str: str, date_format: str, debug_info: str, spider: Spider
