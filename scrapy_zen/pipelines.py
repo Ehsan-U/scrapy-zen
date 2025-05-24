@@ -134,11 +134,12 @@ class PreProcessingPipeline(ItemValidationPipeline):
     async def db_insert(self, id: str, spider_name: str, item: Dict) -> None:
         try:
             await self.cursor.execute(
-                "INSERT INTO Items (id,spider,scraped_at,published_at) VALUES (%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING", (id, spider_name, item.get("scraped_at"), item.get("published_at"))
+                "INSERT INTO Items (id,spider,scraped_at,published_at) VALUES (%s,%s,%s,%s)", (id, spider_name, item.get("scraped_at"), item.get("published_at"))
             )
         except Exception as e:
             self.spider_logger.error(f"db_insert: {e}")
             await self.conn.rollback()
+            raise DropItem(f"Already exists [{_id}]")
         else:
             await self.conn.commit()
 
