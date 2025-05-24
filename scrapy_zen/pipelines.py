@@ -137,8 +137,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
                 "INSERT INTO Items (id,spider,scraped_at,published_at) VALUES (%s,%s,%s,%s)", (id, spider_name, item.get("scraped_at"), item.get("published_at"))
             )
         except Exception as e:
-            self.spider_logger.error(f"db_insert: {e}")
-            raise DropItem(f"Already exists [{id}]")
+            raise DropItem(f"[db_insert] Already exists [{id}]: {e}")
         else:
             await self.conn.commit()
 
