@@ -138,8 +138,7 @@ class PreProcessingPipeline(ItemValidationPipeline):
             )
         except Exception as e:
             self.spider_logger.error(f"db_insert: {e}")
-            await self.conn.rollback()
-            raise DropItem(f"Already exists [{_id}]")
+            raise DropItem(f"Already exists [{id}]")
         else:
             await self.conn.commit()
 
@@ -152,7 +151,6 @@ class PreProcessingPipeline(ItemValidationPipeline):
             return record is not None
         except Exception as e:
             self.spider_logger.error(f"db_exists: {e}")
-            await self.conn.rollback()
 
     async def _cleanup_old_records(self, days: int) -> None:
         try:
@@ -162,7 +160,6 @@ class PreProcessingPipeline(ItemValidationPipeline):
             )
         except Exception as e:
             self.spider_logger.error(f"_cleanup_old_records: {e}")
-            await self.conn.rollback()
         else:
             await self.conn.commit()
 
