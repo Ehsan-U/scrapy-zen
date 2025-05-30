@@ -166,3 +166,10 @@ class ZenAddon:
             "scrapy_zen.dupefilters.ZenDupeFilter",
             "addon",
         )
+
+        # extensions
+        settings["EXTENSIONS"].update(
+            {
+                "scrapy_zen.extensions.ZenAutoThrottle": 551,
+            }
+        )
