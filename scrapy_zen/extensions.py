@@ -47,15 +47,15 @@ class ZenExtension:
     def log(self, spider: Spider) -> None:
         self.calculate_stats()
         msg = (
-            "[%(spider_name)s] Crawled %(pages)d pages (at %(pagerate)d pages/min), "
-            "scraped %(items)d items (at %(itemrate)d items/min)"
+            "Crawled %(pages)d pages (at %(pagerate)d pages/min), "
+            "scraped %(items)d items (at %(itemrate)d items/min) [%(spider_name)s]"
         )
         log_args = {
-            "spider_name": spider.name,
             "pages": self.pages,
             "pagerate": self.prate,
             "items": self.items,
             "itemrate": self.irate,
+            "spider_name": spider.name,
         }
         logger.info(msg, log_args, extra={"spider": spider})
 
@@ -65,10 +65,10 @@ class ZenExtension:
         self.irate: float = (self.items - self.itemsprev) * self.multiplier
         self.prate: float = (self.pages - self.pagesprev) * self.multiplier
         self.pagesprev, self.itemsprev = self.pages, self.items
-    
+
     def request_reached_downloader(self, request: Request, spider: Spider) -> None:
         request.meta['zen_start_time'] = time()
-    
+
     def response_received(self, response: Response, request: Request, spider: Spider) -> None:
         download_latency = time() - request.meta.pop("zen_start_time")
         if self.min_latency is None:
@@ -88,7 +88,7 @@ class ZenExtension:
             self.stats.set_value("zen/avg_latency_seconds", f"{avg_response_latency:.2f}")
             self.stats.set_value("zen/min_latency_seconds", f"{self.min_latency:.2f}")
             self.stats.set_value("zen/max_latency_seconds", f"{self.max_latency:.2f}")
-            self.stats.set_value("zen/response_count", self.response_count) 
+            self.stats.set_value("zen/response_count", self.response_count)
         if self.task and self.task.running:
             self.task.stop()
 
