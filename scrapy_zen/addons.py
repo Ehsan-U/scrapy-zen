@@ -171,5 +171,6 @@ class ZenAddon:
         settings["EXTENSIONS"].update(
             {
                 "scrapy_zen.extensions.ZenAutoThrottle": 551,
+                "scrapy.extensions.logstats.LogStats": None, # disable default logstats (ZenExtension will handle it)
             }
         )

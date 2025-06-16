@@ -7,6 +7,8 @@ from scrapy import Request, Spider, signals
 from scrapy.exceptions import NotConfigured
 from scrapy.http import Request, Response
 from scrapy.core.downloader import Slot
+from twisted.internet import task
+
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class ZenExtension:
     """
-    Allows to calculate average latency across requests
+    Allows to calculate average latency across requests and shows logstats
     """
 
     def __init__(self, stats: StatsCollector) -> None:
@@ -23,14 +25,46 @@ class ZenExtension:
         self.total_latency = 0.0
         self.max_latency = None
         self.min_latency = None
+        self.interval: float = 60.0
+        self.multiplier: float = 60.0 / self.interval
+        self.task: task.LoopingCall | None = None
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
         ext = cls(crawler.stats)
         crawler.signals.connect(ext.response_received, signal=signals.response_received)
         crawler.signals.connect(ext.request_reached_downloader, signal=signals.request_reached_downloader)
+        crawler.signals.connect(ext.spider_opened, signal=signals.spider_opened)
         crawler.signals.connect(ext.spider_closed, signal=signals.spider_closed)
         return ext
+
+    def spider_opened(self, spider: Spider) -> None:
+        self.pagesprev: int = 0
+        self.itemsprev: int = 0
+        self.task = task.LoopingCall(self.log, spider)
+        self.task.start(self.interval)
+
+    def log(self, spider: Spider) -> None:
+        self.calculate_stats()
+        msg = (
+            "[%(spider_name)s] Crawled %(pages)d pages (at %(pagerate)d pages/min), "
+            "scraped %(items)d items (at %(itemrate)d items/min)"
+        )
+        log_args = {
+            "spider_name": spider.name,
+            "pages": self.pages,
+            "pagerate": self.prate,
+            "items": self.items,
+            "itemrate": self.irate,
+        }
+        logger.info(msg, log_args, extra={"spider": spider})
+
+    def calculate_stats(self) -> None:
+        self.items: int = self.stats.get_value("item_scraped_count", 0)
+        self.pages: int = self.stats.get_value("response_received_count", 0)
+        self.irate: float = (self.items - self.itemsprev) * self.multiplier
+        self.prate: float = (self.pages - self.pagesprev) * self.multiplier
+        self.pagesprev, self.itemsprev = self.pages, self.items
     
     def request_reached_downloader(self, request: Request, spider: Spider) -> None:
         request.meta['zen_start_time'] = time()
@@ -55,7 +89,31 @@ class ZenExtension:
             self.stats.set_value("zen/min_latency_seconds", f"{self.min_latency:.2f}")
             self.stats.set_value("zen/max_latency_seconds", f"{self.max_latency:.2f}")
             self.stats.set_value("zen/response_count", self.response_count) 
+        if self.task and self.task.running:
+            self.task.stop()
 
+        rpm_final, ipm_final = self.calculate_final_stats(spider)
+        self.stats.set_value("responses_per_minute", rpm_final)
+        self.stats.set_value("items_per_minute", ipm_final)
+
+    def calculate_final_stats(
+        self, spider: Spider
+    ) -> tuple[None, None] | tuple[float, float]:
+        start_time = self.stats.get_value("start_time")
+        finish_time = self.stats.get_value("finish_time")
+
+        if not start_time or not finish_time:
+            return None, None
+
+        mins_elapsed = (finish_time - start_time).seconds / 60
+
+        if mins_elapsed == 0:
+            return None, None
+
+        items = self.stats.get_value("item_scraped_count", 0)
+        pages = self.stats.get_value("response_received_count", 0)
+
+        return (pages / mins_elapsed), (items / mins_elapsed)
 
 
 class ZenAutoThrottle:
