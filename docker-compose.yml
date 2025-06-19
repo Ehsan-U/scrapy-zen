@@ -1,24 +1,14 @@
 services:
-  mongo:
-    image: mongo
+  redis:
+    image: redis:alpine
     restart: always
     ports:
-      - 27017:27017
+      - 127.0.0.1:6379:6379
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning", "--requirepass", "${DB_PASS}"]
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${DB_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${DB_PASS}
-
-  mongo-express:
-    image: mongo-express
-    restart: always
-    ports:
-      - 8080:8081
-    environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: ${DB_USER}
-      ME_CONFIG_MONGODB_ADMINPASSWORD: ${DB_PASS}
-      ME_CONFIG_MONGODB_URL: mongodb://${DB_USER}:${DB_PASS}@mongo:27017/
-      ME_CONFIG_BASICAUTH_USERNAME: ${DB_USER}
-      ME_CONFIG_BASICAUTH_PASSWORD: ${DB_PASS}
+      - REDIS_PASSWORD=${DB_PASS} 
 
 volumes:
-  db_data:
+  redis_data:
