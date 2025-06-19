@@ -20,6 +20,7 @@ class BookSpider(scrapy.Spider):
         
         for book in books:
             yield {
+                "_id": book.css('h3 a::attr(title)').get(),
                 'title': book.css('h3 a::attr(title)').get(),
                 'price': book.css('p.price_color::text').get(),
                 'rating': book.css('p.star-rating::attr(class)').get().split()[-1],
@@ -56,9 +57,9 @@ crawler = CrawlerProcess(settings={
     },
     "ADDONS": {
         "scrapy_zen.addons.ZenAddon": 1,
-        "scrapy_zen.addons.SpidermonAddon": 2,
+        # "scrapy_zen.addons.SpidermonAddon": 2,
     },
-    "LOG_FILE": "logs.log",
+    # "LOG_FILE": "logs.log",
     "ZEN_VALIDATION_SCHEMA": "NEWS",
     # "LOG_FILE_APPEND": False,
     "BOT_NAME": "culture_entertainment",

@@ -4,7 +4,6 @@ import importlib
 import json
 from typing import Dict, List, Self
 import grpc
-from pymongo import AsyncMongoClient
 import scrapy
 from scrapy.crawler import Crawler
 from scrapy.settings import Settings
@@ -23,6 +22,7 @@ logging.getLogger("pymongo").setLevel(logging.ERROR)
 
 from spidermon.contrib.scrapy.pipelines import ItemValidationPipeline
 from scrapy_zen import normalize_url
+from scrapy_zen.databases import RedisDB
 
 
 
@@ -59,16 +59,18 @@ class PreProcessingPipeline(ItemValidationPipeline):
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
-        settings = ["DB_NAME", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASS"]
-        for setting in settings:
+        for setting in RedisDB.settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
         spidermon_enabled = crawler.settings.getbool("SPIDERMON_ENABLED")
         if not spidermon_enabled:
-            return cls(
+            p = cls(
                 settings=crawler.settings,
                 validation_enabled=False,
             )
+            crawler.signals.connect(p.spider_opened, signal=signals.spider_opened)
+            crawler.signals.connect(p.spider_closed, signal=signals.spider_closed)
+            return p
 
         validators = defaultdict(list)
 
@@ -99,45 +101,22 @@ class PreProcessingPipeline(ItemValidationPipeline):
 
     async def spider_opened(self, spider: Spider) -> None:
         try:
-            mongo_uri = f"mongodb://{self.settings.get('DB_USER')}:{self.settings.get('DB_PASS')}@{self.settings.get('DB_HOST')}:{self.settings.get ('DB_PORT')}/"
-            self.mongo_client = AsyncMongoClient(mongo_uri)
-            await self.mongo_client.aconnect()
-            self.db = self.mongo_client[self.settings.get("DB_NAME")]
-            self.collection = self.db["Items"]
+            self.db = RedisDB()
+            await self.db.connect(*[self.settings.get(setting) for setting in self.db.settings])
         except:
             raise NotConfigured("Failed to connect to DB")
-        days = self.settings.getint("DB_EXPIRY_DAYS")
+        days = self.settings.getint("DB_EXPIRY_DAYS", 15)
         if days:
             spider.logger.warning("Expiration enabled for DB records")
-            await self._cleanup_old_records(days)
+            await self.db.cleanup(days)
 
     async def spider_closed(self, spider: Spider) -> None:
-        if hasattr(self, "mongo_client"):
-            await self.mongo_client.close()
-
-    async def db_insert(self, id: str, spider_name: str, item: Dict) -> None:
-        await self.collection.insert_one({
-            "id": id,
-            "spider": spider_name,
-            "scraped_at": item.get("scraped_at"),
-            "published_at": item.get("published_at"),
-            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00","Z"),
-        })
-
-    async def db_exists(self, id: str, spider_name: str) -> bool:
-        result = await self.collection.find_one({"id": id, "spider": spider_name})
-        return result is not None
-
-    async def _cleanup_old_records(self, days: int) -> None:
-        await self.collection.delete_many({
-            "timestamp": {
-                "$lt": datetime.now(timezone.utc) - timedelta(days=days)
-            }
-        })
+        if hasattr(self, "db"):
+            await self.db.close()
 
     def is_recent(
         self, date_str: str, date_format: str, debug_info: str, spider: Spider
-    ) -> bool:
+    ) -> bool: 
         """
         Check if the date is recent (within the last 2 days).
         """
@@ -174,11 +153,11 @@ class PreProcessingPipeline(ItemValidationPipeline):
         _id = item.get("_id", None)
         if _id:
             _id = normalize_url(_id)
-            id_exists = await self.db_exists(_id, spider.name)
+            id_exists = await self.db.exists(_id, spider.name)
             if id_exists:
                 raise DropItem(f"Already exists [{_id}]")
             else:
-                await self.db_insert(_id, spider.name, item)
+                await self.db.insert(_id, spider.name)
         _dt = item.pop("_dt", None)
         _dt_format = item.pop("_dt_format", None)
         if _dt:
@@ -210,8 +189,7 @@ class PostProcessingPipeline:
 
     @classmethod
     def from_crawler(cls, crawler: Crawler) -> Self:
-        settings = ["DB_NAME", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASS"]
-        for setting in settings:
+        for setting in RedisDB.settings:
             if not crawler.settings.get(setting):
                 raise NotConfigured(f"{setting} is not set")
         p = cls(settings=crawler.settings)
@@ -221,27 +199,21 @@ class PostProcessingPipeline:
 
     async def spider_opened(self, spider: Spider) -> None:
         try:
-            mongo_uri = f"mongodb://{self.settings.get('DB_USER')}:{self.settings.get('DB_PASS')}@{self.settings.get('DB_HOST')}:{self.settings.get ('DB_PORT')}/"
-            self.mongo_client = AsyncMongoClient(mongo_uri)
-            await self.mongo_client.aconnect()
-            self.db = self.mongo_client[self.settings.get("DB_NAME")]
-            self.collection = self.db["Items"]
+            self.db = RedisDB()
+            await self.db.connect(*[self.settings.get(setting) for setting in self.db.settings])
         except:
             raise NotConfigured("Failed to connect to DB")
 
     async def spider_closed(self, spider: Spider) -> None:
-        if hasattr(self, "mongo_client"):
-            await self.mongo_client.close()
-
-    async def db_remove(self, id: str, spider_name: str) -> None:
-        await self.collection.delete_one({"id": id, "spider": spider_name})
+        if hasattr(self, "db"):
+            await self.db.close()
 
     async def process_item(self, item: Dict, spider: Spider) -> Dict:
         if not item.pop("_delivered", None):
             _id = item.get("_id", None)
             if _id:
                 _id = normalize_url(_id)
-                await self.db_remove(_id, spider.name)
+                await self.db.remove(_id, spider.name)
         return item
 
 

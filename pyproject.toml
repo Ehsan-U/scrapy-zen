@@ -1,6 +1,6 @@
 [project]
 name = "scrapy-zen"
-version = "0.4.5"
+version = "0.5.0"
 description = "Scrapy Toolkit"
 authors = [
     {name = "Ehsan U.",email = "lancerf562@gmail.com"}
@@ -9,11 +9,11 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "scrapy",
-  "pymongo",
   "dateparser",
   "python-dotenv",
   "jsonpath-ng",
   "html-text",
+  "redis[hiredis]",
 ]
 
 [project.optional-dependencies]
